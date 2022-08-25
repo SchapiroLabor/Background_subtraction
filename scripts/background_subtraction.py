@@ -17,7 +17,6 @@ def get_args():
     # Sections
     inputs = parser.add_argument_group(title="Required Input", description="Path to required input file")
     inputs.add_argument("-r", "--raw", dest="raw", action="store", required=True, help="File path to raw image file.")
-    #ask Miguel about multiple channels because it is not clear for me how the code works (but I'll be using a csv file)
     inputs.add_argument("-m", "--markers", dest="markers", action="store", required=True, help="File path to required markers.csv file")
     
     outputs = parser.add_argument_group(title="Output", description="Path to output file")
