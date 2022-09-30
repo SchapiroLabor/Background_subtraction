@@ -13,8 +13,8 @@ on:
 
 env:
   # Use docker.io for Docker Hub if empty
-  REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
+  REGISTRY: KBestak
+  # github.repository as <repo>
   IMAGE_NAME: ${{ github.repository }}
 
 
