@@ -38,3 +38,23 @@ Metadata:
 
 
 ### Docker usage
+
+If you want to run the background subtraction directly from a pre-configured container with all the required packages, you can either build the docker container yourself or pull it from the Github container registry.
+
+To build the container run:
+
+```
+git clone https://github.com/SchapiroLabor/Background_subtraction.git
+docker build -t background_subtraction:latest .
+docker run background_subtraction:latest background_sub.py
+```
+
+To pull the container from the Github container registry (ghcr.io):
+
+```
+## Login to ghcr.io
+docker login ghcr.io
+
+## Pull container
+docker pull ghcr.io/schapirolabor/background_subtraction:latest
+```
