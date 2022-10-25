@@ -1,27 +1,15 @@
 from __future__ import print_function, division
 from multiprocessing.spawn import import_main_path
-import warnings
 import sys
-import os
-import re
-import io
+import copy
 import argparse
-import pathlib
-import struct
-import itertools
-import uuid
-import multiprocessing
-import concurrent.futures
-from xml.dom.minidom import TypeInfo
 import numpy as np
-#import dask
 import tifffile
 import zarr
 import skimage.transform
 from aicsimageio import aics_image as AI
 import pandas as pd
 import numexpr as ne
-import dask.array as da
 from ome_types import from_tiff, to_xml
 from os.path import abspath
 from argparse import ArgumentParser as AP
@@ -47,7 +35,7 @@ def get_args():
     inputs = parser.add_argument_group(title="Required Input", description="Path to required input file")
     inputs.add_argument("-r", "--root", dest="root", action="store", required=True, help="File path to root image file.")
     inputs.add_argument("-m", "--markers", dest="markers", action="store", required=True, help="File path to required markers.csv file")
-    parser.add_argument("--pixel-size", metavar="SIZE", dest = "pixel_size", type=float, default=1.0, action = "store",help="pixel size in microns; default is 1.0")
+    inputs.add_argument("--pixel-size", metavar="SIZE", dest = "pixel_size", type=float, default = None, action = "store",help="pixel size in microns; default is 1.0")
     
     outputs = parser.add_argument_group(title="Output", description="Path to output file")
     outputs.add_argument("-o", "--output", dest="output", action="store", required=True, help="Path to output file")
@@ -179,30 +167,34 @@ def main(args):
     img = img_raw.get_image_dask_data("CYX")
 
     markers_raw = pd.read_csv(args.markers)
-    markers = process_markers(markers_raw)
+    markers = process_markers(copy.copy(markers_raw))
 
     img = subtract(img, markers)
     img = remove_back(img, markers)
 
     markers_raw = markers_raw[markers_raw.background != True]
-    markers_raw.drop("background", axis = 1, inplace = True)
-    markers_raw.to_csv(args.markerout)
+    markers_raw = markers_raw.drop("background", axis = 1)
+    markers_raw.to_csv(args.markerout, index=False)
 
     # Processing metadata - highly adapted to Lunaphore outputs
     metadata = process_metadata(img_raw.metadata, markers)
     metadata = img_raw.metadata
 
-    pixel_size = args.pixel_size
+    
+    if args.pixel_size != None:
+        # If specified, the inputted pixel size is used
+        pixel_size = args.pixel_size
+    elif img_raw.metadata.images[0].pixels.physical_size_x != None:
+        # If pixel size is not specified, the metadata is checked (the script trusts users more than metadata)
+        pixel_size = img_raw.metadata.images[0].pixels.physical_size_x
+    else:
+        # If no pixel size specified anywhere, use default 1.0
+        pixel_size = 1.0
 
     # construct levels
     tile_size = 1024
     scale = 2
 
-    #if hasattr(os, 'sched_getaffinity'):
-    #    num_workers = len(os.sched_getaffinity(0))
-    #else:
-    #    num_workers = multiprocessing.cpu_count()
-    #print(f"Using {num_workers} worker threads on detected CPU count.")
     print()
     dtype = img.dtype
     base_shape = img[0].shape
@@ -218,24 +210,12 @@ def main(args):
             print("(original size)", end="")
         print()
     print()
-
-    print(shapes)
-    #executor = concurrent.futures.ThreadPoolExecutor(num_workers)
-
-    #shape_pairs = zip(shapes, shapes[1:])
-
-    
-    
+    print(shapes)  
     
     level_full_shapes = []
     for shape in shapes:
         level_full_shapes.append((num_channels, shape[0], shape[1]))
     level_shapes = shapes
-
-        #level_shapes.append(shape)
-    #for level in range(num_levels):
-    #    level_full_shapes.append(level_dict[f"level_{level}"].shape)
-    #    level_shapes.append(level_dict[f"level_{level}"].shape[1:])
 
     #level_shapes = np.array(level_shapes)
     tip_level = np.argmax(np.all(level_shapes < tile_size, axis=1))
@@ -260,16 +240,11 @@ def main(args):
         ):
             tiff.write(
                 data = subres_tiles(level, level_full_shapes, tile_shapes, args.output, scale),
-                #data=level_dict[f"level_{level}"],
                 shape=shape,
                 subfiletype=1,
                 dtype=dtype,
                 tile=tile_shape
             )
-        #metadata.images[0].pixels.channels = [metadata.images[0].pixels.channels[i] for i in range(num_channels)]
-        #metadata.images[0].pixels.size_c = num_channels
-        #metadata.images[0].pixels.size_x = img.shape[2]
-        #metadata.images[0].pixels.size_y = img.shape[1]
         if metadata.images[0].pixels.planes:
             temp_planes = []
             for i, channel_id in enumerate(range(num_channels)):
@@ -283,6 +258,7 @@ def main(args):
         # Write
     tifffile.tiffcomment(args.output, to_xml(metadata))
     print()
+
         
     
 if __name__ == '__main__':
