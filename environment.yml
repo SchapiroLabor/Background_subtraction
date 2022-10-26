@@ -4,7 +4,6 @@ channels:
  - conda-forge
  - defaults
 dependencies:
- - libgcc-ng=9.3.0
  - python=3.9.13
  - scipy=1.9.3
  - aicsimageio=4.9.2
