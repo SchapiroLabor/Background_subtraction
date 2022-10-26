@@ -9,5 +9,4 @@ dependencies:
  - aicsimageio=4.9.2
  - numexpr=2.8.3
  - scikit-image=0.19.2
- - scipy=0.7.2
  - tifffile=2022.8.12
