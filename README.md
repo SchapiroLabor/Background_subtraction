@@ -51,7 +51,7 @@ To build the container run:
 ```
 git clone https://github.com/SchapiroLabor/Background_subtraction.git
 docker build -t background_subtraction:latest .
-docker run background_subtraction:latest background_sub.py
+docker run background_subtraction:latest python background_sub.py
 ```
 
 To pull the container from the Github container registry (ghcr.io):
