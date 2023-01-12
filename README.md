@@ -4,7 +4,7 @@ Background subtraction for COMET platform
 
 ## Introduction
 
-If there are background (autofluorescence) channels present in a `.tif` image, background subtraction should be performed so as not to skew the quantification counts of markers. The most precise way of subtracting background would be on a pixel-to-pixel basis. An alternative would be on a cell basis by just subtracting the background measurements from the marker measurements for each cell, however, it is possible to introduce an artificial reduction in the marker signal this way. Another advantage of pixel-to-pixel background subtraction is visual inspection, as well as future use of images as figures in published work.
+If there are background (autofluorescence) channels present in a `.tif` image, background subtraction should be performed so as not to skew the quantification counts of markers. The most precise way of subtracting background would be on a pixel-to-pixel basis. An alternative would be on a cell basis by just subtracting the background measurements from the marker measurements for each cell, however, for visual inspection of images, as well as future use of images as figures in published work, it is preferred to use this.
 
 Background subtraction is performed using the following formula:
 
@@ -15,7 +15,12 @@ Marker<sub>*corrected*</sub> = Marker<sub>*raw*</sub> - Background / Exposure<su
 
 ### Markers file
 
-The `markers.csv` file which gives details about the channels needs to contain the following columns: "Filter", "background" and "exposure". An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtraction/files/9549686/markers.csv) file is given. The "Filter" column should specify the Filter used when acquiring images. If different stains are aquired with the same filter, the *exact same value* needs to be written (including background) as it is used for determining which background channel should be subtracted. The "background" column should contain logical `TRUE` values for channels which represent autofluorescence. The "exposure" column should contain the exposure time used for channel acquisition, and the measure unit should be consistent across the column. Exposure time is used for scaling the value of the background to be comparable to the processed channel.
+#### Version v0.3.0:
+The `markers.csv` file which gives details about the channels needs to contain the following columns: "marker_name", "background" and "exposure". An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtraction/example/markers.csv) file is given. The "marker_name" column should indicate the marker for the acquired channel and all values should be unique. The "background" column should indicate the marker name of the channel which needs to be subtracted. This value must match the "marker_name" value of the background channel. The "exposure" column should contain the exposure time used for channel acquisition, and the measure unit should be consistent across the column. Exposure time is used for scaling the value of the background to be comparable to the processed channel. The "remove" column should contain logical `TRUE` values for channels which should be exluded in the output image.
+
+
+#### Versions v0.2.0 and older:
+The `markers.csv` file which gives details about the channels needs to contain the following columns: "Filter", "background" and "exposure". An exemplary [markers_old.csv](https://github.com/SchapiroLabor/Background_subtraction/files/9549686/markers.csv) file is given. The "Filter" column should specify the Filter used when acquiring images. If different stains are aquired with the same filter, the *exact same value* needs to be written (including background) as it is used for determining which background channel should be subtracted. The "background" column should contain logical `TRUE` values for channels which represent autofluorescence. The "exposure" column should contain the exposure time used for channel acquisition, and the measure unit should be consistent across the column. Exposure time is used for scaling the value of the background to be comparable to the processed channel.
 
 
 ### CLI
@@ -29,7 +34,7 @@ The script requires four inputs:
 
 ### Output
 
-The output file will be a non-pyramidal `ome.tif` file containing the processed channels with a subtracted scaled background. Pyramidal output should soon be added. The background channels are not included in the file and if no matching background channel is found for a channel, background subtraction is skipped, and the unedited channel is included in the final image.
+The output file will be a pyramidal `ome.tif` file containing the processed channels with a subtracted scaled background. The channels tagged for removal will be excluded from the final image.
 
 Metadata:
 * channel names - as given in input image

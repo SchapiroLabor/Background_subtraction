@@ -14,7 +14,6 @@ from ome_types import from_tiff, to_xml
 from os.path import abspath
 from argparse import ArgumentParser as AP
 import time
-import dask
 # This API is apparently changing in skimage 1.0 but it's not clear to
 # me what the replacement will be, if any. We'll explicitly import
 # this so it will break loudly if someone tries this with skimage 1.0.
@@ -67,108 +66,76 @@ def format_shape(shape):
 
 def process_markers(markers):
     # add column with starting indices (which match the image channel indices)
-    # this should be removed soon
     markers['ind'] = range(0, len(markers))
 
-    # if the 'remove' column is not specified, all channels are kept. If it is 
-    # present, it is converted to a boolean indicating which channels should be removed
-    if 'remove' not in markers:
-        markers['remove'] = ["False" for i in range(len(markers))]
-    else:
-        markers['remove'] = markers['remove'] == True
-    # invert the markers.remove column to indicate which columns to keep
-    markers['remove'] = markers['remove'] == False
-
+    # initializing sublist - sublist will indicate which background channel to subtract 
+    sublist = [-1 for i in range(len(markers))]
+    for i, Filter in enumerate(markers[markers.background == True].Filter):
+        # in the markers.csv file, the Filter needs to be the exact same!!!
+        # sublist needs to be able to handle any background index 
+        # - the index of the background column is put to sublist where 
+        # the Filter matches the background
+        sublist += np.where(
+            np.logical_and(markers.Filter == Filter, np.array(markers.background != True)), 
+                markers[markers.background == True].iloc[i].ind + 1, 0)
+    # add sublist to markers - if sublist == -1, no background subtraction
+    # if other, the value matches the index of the background which needs to be subtracted
+    markers["sublist"] = sublist
     return markers
 
 def process_metadata(metadata, markers):
     try:
-        metadata.screens[0].reagents = [metadata.screens[0].reagents[i] for i in markers[markers.remove == True].ind]
+        metadata.screens[0].reagents = [metadata.screens[0].reagents[i] for i in markers[markers.background != True].ind]
     except:
         pass
     try:
-        metadata.structured_annotations = [metadata.structured_annotations[i] for i in markers[markers.remove == True].ind]
+        metadata.structured_annotations = [metadata.structured_annotations[i] for i in markers[markers.background != True].ind]
     except:
         pass
     # these two are required
-    metadata.images[0].pixels.size_c = len(markers[markers.remove == True])
-    metadata.images[0].pixels.channels = [metadata.images[0].pixels.channels[i] for i in markers[markers.remove == True].ind]
+    metadata.images[0].pixels.size_c = len(markers[markers.background != True])
+    metadata.images[0].pixels.channels = [metadata.images[0].pixels.channels[i] for i in markers[markers.background != True].ind]
     try:
-        metadata.images[0].pixels.planes = [metadata.images[0].pixels.planes[i] for i in markers[markers.remove == True].ind]
-    except:
-        pass
-    try:
-        metadata.images[0].pixels.tiff_data_blocks[0].plane_count = sum(markers.remove == True)
+        metadata.images[0].pixels.planes = [metadata.images[0].pixels.planes[i] for i in markers[markers.background != True].ind]
     except:
         pass
     return metadata
 
-# NaN values return True for the statement below in this version of Python. Did not use math.isnan() since the values
-# are strings if present
-def isNaN(x):
-    return x != x
 
 
-def subtract_channel(image, markers, channel, background_marker, output):
-    scalar = markers[markers.ind == channel].exposure.values / background_marker.exposure.values
-    
-    # create temporary dataframe which will store the multiplied background rounded up to nearest integer
-    back = image[background_marker.ind]
-    
-    # subtract background from processed channel and if the background intensity for a certain pixel was larger than
-    # the processed channel, set intensity to 0 (no negative values)
-    back = np.rint(ne.evaluate("back * scalar")).astype(np.uint16)
-    # set the pixel value to 0 if the image channel value is lower than the scaled background channel value
-    # otherwise, subtract.
-    output[channel] = np.where(image[channel]<back, 0, image[channel]-back)
-    del back
-    return output[channel]
-
-
-def subtract(img, markers, output):
+def subtract(img, markers):
     # iterating over channels
-    for channel in range(len(markers)):
-        # this array is used to find the appropriate background channel
-        # IMPORTANT - all values in the 'marker_name' column should be unique        
-
-        # if no background channel is specified, channel is kept like if should be
-        if markers.background.isnull()[channel] == True:
+    for channel in markers.ind:
+        # if sublist has negative values, no background subtraction (either because it does
+        # not match background, or because it is background)
+        if markers.sublist[channel] < 0:
             # no change - applies to background channels as well
-            output[channel] = copy.copy(img[channel])
-            print(f"Channel {markers.marker_name[channel]} ({channel}) processed, no background subtraction")
+            print(f"Channel {channel} processed, no background subtraction")
 
         else:
-            # this array is used to find the appropriate background channel
-            # IMPORTANT - all values in the 'marker_name' column should be unique
-            find_background = np.array(markers.marker_name == markers.background[channel])
             # scalar is the coefficient with which the background pixel intensity is scaled
             # it is the result of dividing the marker exposure time with the background exposure time
             # Marker_corr = Marker_root - Background * Exposure_marker / Exposure_background
-            background_marker = markers.iloc[find_background]
-
-            output[channel] = subtract_channel(img, markers, channel, background_marker, output)
+            scalar = markers[markers.ind==channel].exposure.values / markers[markers.ind == markers.sublist[channel]].exposure.values
             
-            # in case a user wants to perform background subtraction on the background channel as well, since the script
-            # is written so that the original image is changed, and not a new one created, the channel to-be-subtracted
-            # is no longer the same, since it had its background subtracted. This is why the background's background has to 
-            # also be subtracted. Please don't use deeper background chains, or loops (subtract A from B and B from A).
-            # Best practices: never subtract background from channels indicated as background elsewhere 
-            #if isNaN(background_marker.background.values) != True and background_marker.ind.values < channel:
-            #    find_background = np.array(markers.marker_name.values == background_marker.background.values)
-            #    background_marker = markers.iloc[find_background]
-            #    output[channel] = subtract_channel(output, markers, channel, background_marker)
+            # create temporary dataframe which will store the multiplied background rounded up to nearest integer
+            back = img[markers.sublist[channel]]
+            back = np.rint(ne.evaluate("back * scalar")).astype(np.uint16) # slowest step of entire script
 
-            print(f"Channel {markers.marker_name[channel]} ({channel}) processed, {markers.background[channel]} background channel subtracted")
-    return output
+            # subtract background from processed channel and if the background intensity for a certain pixel was larger than
+            # the processed channel, set intensity to 0 (no negative values)
+            img[channel] = np.where(img[channel]<back, 0, img[channel]-back) # not optimized, but works
+            del back
+
+            print(f"Channel {channel} processed, {markers[markers.ind==channel].Filter.values[0]} background channel subtracted")
+    return img
 
 def remove_back(img, markers):
     #with dask.config.set(**{'array.slicing.split_large_chunks': True}):
-    # subset the image based on the remove column in the markers file
-    img = img[markers.remove.tolist()]
-    print()
-    print(f'Image shape: {img.shape}')
+    img = img[markers.background != True]
     return img
     
+
 def subres_tiles(level, level_full_shapes, tile_shapes, outpath, scale):
     print(f"\n processing level {level}")
     assert level >= 1
@@ -194,6 +161,7 @@ def subres_tiles(level, level_full_shapes, tile_shapes, outpath, scale):
                 a = a.astype('uint16')
                 yield a
 
+
 def main(args):
     img_raw = AI.AICSImage(args.root)
     img = img_raw.get_image_dask_data("CYX")
@@ -201,21 +169,20 @@ def main(args):
     markers_raw = pd.read_csv(args.markers)
     markers = process_markers(copy.copy(markers_raw))
 
-    output = dask.array.empty_like(img)
+    img = subtract(img, markers)
+    img = remove_back(img, markers)
 
-    output = subtract(img, markers, output)
-    output = remove_back(output, markers)
-
-    markers_raw = markers_raw[markers_raw.remove != True]
-    markers_raw = markers_raw.drop("remove", axis = 1)
+    markers_raw = markers_raw[markers_raw.background != True]
+    markers_raw = markers_raw.drop("background", axis = 1)
     markers_raw.to_csv(args.markerout, index=False)
 
     # Processing metadata - highly adapted to Lunaphore outputs
-    metadata = img_raw.metadata
     metadata = process_metadata(img_raw.metadata, markers)
+    metadata = img_raw.metadata
+
     
     if args.pixel_size != None:
-        # If specified, the input pixel size is used
+        # If specified, the inputted pixel size is used
         pixel_size = args.pixel_size
     elif img_raw.metadata.images[0].pixels.physical_size_x != None:
         # If pixel size is not specified, the metadata is checked (the script trusts users more than metadata)
@@ -229,9 +196,9 @@ def main(args):
     scale = 2
 
     print()
-    dtype = output.dtype
-    base_shape = output[0].shape
-    num_channels = output.shape[0]
+    dtype = img.dtype
+    base_shape = img[0].shape
+    num_channels = img.shape[0]
     num_levels = (np.ceil(np.log2(max(base_shape) / tile_size)) + 1).astype(int)
     factors = 2 ** np.arange(num_levels)
     shapes = (np.ceil(np.array(base_shape) / factors[:,None])).astype(int)
@@ -249,6 +216,8 @@ def main(args):
     for shape in shapes:
         level_full_shapes.append((num_channels, shape[0], shape[1]))
     level_shapes = shapes
+
+    #level_shapes = np.array(level_shapes)
     tip_level = np.argmax(np.all(level_shapes < tile_size, axis=1))
     tile_shapes = [
         (tile_size, tile_size) if i <= tip_level else None
@@ -256,9 +225,10 @@ def main(args):
     ]
 
     # write pyramid
+
     with tifffile.TiffWriter(args.output, ome=True, bigtiff=True) as tiff:
         tiff.write(
-            data = output,
+            data = img,
             shape = level_full_shapes[0],
             subifds=int(num_levels-1),
             dtype=dtype,
@@ -275,10 +245,17 @@ def main(args):
                 dtype=dtype,
                 tile=tile_shape
             )
-
-    # note about metadata: the channels, planes etc were adjusted not to include the removed channels, however
-    # the channel ids have stayed the same as before removal. E.g if channels 1 and 2 are removed,
-    # the channel ids in the metadata will skip indices 1 and 2 (channel_id:0, channel_id:3, channel_id:4 ...)
+        if metadata.images[0].pixels.planes:
+            temp_planes = []
+            for i, channel_id in enumerate(range(num_channels)):
+                temp_plane = metadata.images[0].pixels.planes[channel_id]
+                temp_plane.the_c = i
+                temp_planes.append(temp_plane)
+            metadata.images[0].pixels.planes = temp_planes
+        if metadata.images[0].pixels.tiff_data_blocks and len(
+                metadata.images[0].pixels.tiff_data_blocks) > 0:
+            metadata.images[0].pixels.tiff_data_blocks[0].plane_count = num_channels
+        # Write
     tifffile.tiffcomment(args.output, to_xml(metadata))
     print()
 
@@ -293,3 +270,11 @@ if __name__ == '__main__':
     main(args)
     rt = time.time() - st
     print(f"Script finished in {rt // 60:.0f}m {rt % 60:.0f}s")
+            
+        
+
+
+
+
+
+
