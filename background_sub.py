@@ -113,8 +113,7 @@ def subtract_channel(image, markers, channel, background_marker, output):
     scalar = markers[markers.ind == channel].exposure.values / background_marker.exposure.values
     
     # create temporary dataframe which will store the multiplied background rounded up to nearest integer
-    back = image[background_marker.ind]
-    
+    back = image[background_marker.ind][0]
     # subtract background from processed channel and if the background intensity for a certain pixel was larger than
     # the processed channel, set intensity to 0 (no negative values)
     back = np.rint(ne.evaluate("back * scalar")).astype(np.uint16)
