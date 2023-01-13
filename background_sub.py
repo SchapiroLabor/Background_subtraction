@@ -113,8 +113,8 @@ def subtract_channel(image, markers, channel, background_marker, output):
     scalar = markers[markers.ind == channel].exposure.values / background_marker.exposure.values
     
     # create temporary dataframe which will store the multiplied background rounded up to nearest integer
-    back = image[background_marker.ind]
-    
+    # [0] at the end needed to get [x, y] shape, and not have [1, x, y]
+    back = copy.copy(image[background_marker.ind])[0]
     # subtract background from processed channel and if the background intensity for a certain pixel was larger than
     # the processed channel, set intensity to 0 (no negative values)
     back = np.rint(ne.evaluate("back * scalar")).astype(np.uint16)
@@ -147,16 +147,6 @@ def subtract(img, markers, output):
             background_marker = markers.iloc[find_background]
 
             output[channel] = subtract_channel(img, markers, channel, background_marker, output)
-            
-            # in case a user wants to perform background subtraction on the background channel as well, since the script
-            # is written so that the original image is changed, and not a new one created, the channel to-be-subtracted
-            # is no longer the same, since it had its background subtracted. This is why the background's background has to 
-            # also be subtracted. Please don't use deeper background chains, or loops (subtract A from B and B from A).
-            # Best practices: never subtract background from channels indicated as background elsewhere 
-            #if isNaN(background_marker.background.values) != True and background_marker.ind.values < channel:
-            #    find_background = np.array(markers.marker_name.values == background_marker.background.values)
-            #    background_marker = markers.iloc[find_background]
-            #    output[channel] = subtract_channel(output, markers, channel, background_marker)
 
             print(f"Channel {markers.marker_name[channel]} ({channel}) processed, {markers.background[channel]} background channel subtracted")
     return output
