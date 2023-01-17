@@ -1,6 +1,6 @@
 FROM mambaorg/micromamba:0.26.0
 
-RUN apt-get update && apt install -y procps g++ && apt-get clean
+RUN apt-get install -y procps
 
 COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/env.yaml
 
