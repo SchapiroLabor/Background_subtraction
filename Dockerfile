@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:0.26.0
+FROM mambaorg/micromamba:0.13.0
 
 RUN apt-get install -y procps
 
