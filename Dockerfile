@@ -1,5 +1,5 @@
 FROM mambaorg/micromamba:0.26.0
-
+USER root
 COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/env.yaml
 
 RUN apt-get update \
@@ -10,3 +10,4 @@ RUN apt-get update \
 ENV PATH="${PATH}:/opt/conda/bin"
 WORKDIR /background_subtraction
 COPY . .
+USER 1001
