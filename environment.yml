@@ -11,3 +11,4 @@ dependencies:
  - numexpr=2.8.3
  - tifffile=2022.8.12
  - scipy=1.9.3
+ - procps-ng
