@@ -108,7 +108,6 @@ def process_metadata(metadata, markers):
 def isNaN(x):
     return x != x
 
-
 def subtract_channel(image, markers, channel, background_marker, output):
     scalar = markers[markers.ind == channel].exposure.values / background_marker.exposure.values
     
@@ -117,13 +116,13 @@ def subtract_channel(image, markers, channel, background_marker, output):
     back = copy.copy(image[background_marker.ind])[0]
     # subtract background from processed channel and if the background intensity for a certain pixel was larger than
     # the processed channel, set intensity to 0 (no negative values)
-    back = np.rint(ne.evaluate("back * scalar")).astype(np.uint16)
+    back = np.rint(ne.evaluate("back * scalar"))
+    back = np.where(back>65535,65535,back.astype(np.uint16))
     # set the pixel value to 0 if the image channel value is lower than the scaled background channel value
     # otherwise, subtract.
     output[channel] = np.where(image[channel]<back, 0, image[channel]-back)
-    del back
+    back = None
     return output[channel]
-
 
 def subtract(img, markers, output):
     # iterating over channels
