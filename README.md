@@ -15,7 +15,7 @@ Marker<sub>*corrected*</sub> = Marker<sub>*raw*</sub> - Background / Exposure<su
 
 ### Markers file
 
-#### Version v0.3.0:
+#### Versions v0.3.0 and newer:
 The `markers.csv` file which gives details about the channels needs to contain the following columns: "marker_name", "background" and "exposure". An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtraction/example/markers.csv) file is given. The "marker_name" column should indicate the marker for the acquired channel and all values should be unique. The "background" column should indicate the marker name of the channel which needs to be subtracted. This value must match the "marker_name" value of the background channel. The "exposure" column should contain the exposure time used for channel acquisition, and the measure unit should be consistent across the column. Exposure time is used for scaling the value of the background to be comparable to the processed channel. The "remove" column should contain logical `TRUE` values for channels which should be exluded in the output image.
 
 
