@@ -15,7 +15,6 @@ from os.path import abspath
 from argparse import ArgumentParser as AP
 import time
 import dask
-from memory_profiler import profile
 # This API is apparently changing in skimage 1.0 but it's not clear to
 # me what the replacement will be, if any. We'll explicitly import
 # this so it will break loudly if someone tries this with skimage 1.0.
