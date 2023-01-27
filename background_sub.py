@@ -15,6 +15,7 @@ from os.path import abspath
 from argparse import ArgumentParser as AP
 import time
 import dask
+from memory_profiler import profile
 # This API is apparently changing in skimage 1.0 but it's not clear to
 # me what the replacement will be, if any. We'll explicitly import
 # this so it will break loudly if someone tries this with skimage 1.0.
@@ -124,6 +125,7 @@ def subtract_channel(image, markers, channel, background_marker, output):
     back = None
     return output[channel]
 
+
 def subtract(img, markers, output):
     # iterating over channels
     for channel in range(len(markers)):
@@ -148,15 +150,18 @@ def subtract(img, markers, output):
             output[channel] = subtract_channel(img, markers, channel, background_marker, output)
 
             print(f"Channel {markers.marker_name[channel]} ({channel}) processed, {markers.background[channel]} background channel subtracted")
-    return output
+    return 
 
-def remove_back(img, markers):
+
+#def remove_back(img, markers):
     #with dask.config.set(**{'array.slicing.split_large_chunks': True}):
     # subset the image based on the remove column in the markers file
-    img = img[markers.remove.tolist()]
-    print()
-    print(f'Image shape: {img.shape}')
-    return img
+    #img = img[markers.remove.tolist()]
+    #print(markers.remove.tolist())
+    #zarr_2 = img.oindex[markers.remove.tolist(),:,:]
+    #print()
+    #print(f'Image shape: {img.shape}')
+    #return zarr_2
     
 def subres_tiles(level, level_full_shapes, tile_shapes, outpath, scale):
     print(f"\n processing level {level}")
@@ -190,10 +195,12 @@ def main(args):
     markers_raw = pd.read_csv(args.markers)
     markers = process_markers(copy.copy(markers_raw))
 
-    output = dask.array.empty_like(img)
-
-    output = subtract(img, markers, output)
-    output = remove_back(output, markers)
+    #output = dask.array.empty_like(img)
+    store = "store.zarr"
+    zarr_out = zarr.open(store, mode='w', shape=img.shape, dtype=img.dtype)
+    subtract(img, markers, zarr_out)
+    zarr_out = zarr_out.oindex[markers.remove.tolist(),:,:]
+    #zarr_out = remove_back(zarr_out, markers)
 
     markers_raw = markers_raw[markers_raw.remove != True]
     markers_raw = markers_raw.drop("remove", axis = 1)
@@ -218,9 +225,9 @@ def main(args):
     scale = 2
 
     print()
-    dtype = output.dtype
-    base_shape = output[0].shape
-    num_channels = output.shape[0]
+    dtype = zarr_out.dtype
+    base_shape = zarr_out[0].shape
+    num_channels = zarr_out.shape[0]
     num_levels = (np.ceil(np.log2(max(base_shape) / tile_size)) + 1).astype(int)
     factors = 2 ** np.arange(num_levels)
     shapes = (np.ceil(np.array(base_shape) / factors[:,None])).astype(int)
@@ -247,7 +254,7 @@ def main(args):
     # write pyramid
     with tifffile.TiffWriter(args.output, ome=True, bigtiff=True) as tiff:
         tiff.write(
-            data = output,
+            data = zarr_out,
             shape = level_full_shapes[0],
             subifds=int(num_levels-1),
             dtype=dtype,
