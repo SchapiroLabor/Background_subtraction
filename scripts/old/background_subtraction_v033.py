@@ -37,9 +37,6 @@ def get_args():
     inputs.add_argument("-r", "--root", dest="root", action="store", required=True, help="File path to root image file.")
     inputs.add_argument("-m", "--markers", dest="markers", action="store", required=True, help="File path to required markers.csv file")
     inputs.add_argument("--pixel-size", metavar="SIZE", dest = "pixel_size", type=float, default = None, action = "store",help="pixel size in microns; default is 1.0")
-    inputs.add_argument("--pyramid", dest="pyramid", required=False, default=True, help="Should output be pyramidal?")
-    inputs.add_argument("--tile-size", dest="tile_size", required=False, default=1024, help="Tile size for pyramid generation")
-    inputs.add_argument("--version", action="version", version="v0.3.4")
     
     outputs = parser.add_argument_group(title="Output", description="Path to output file")
     outputs.add_argument("-o", "--output", dest="output", action="store", required=True, help="Path to output file")
@@ -105,7 +102,6 @@ def process_metadata(metadata, markers):
     except:
         pass
     return metadata
-
 
 # NaN values return True for the statement below in this version of Python. Did not use math.isnan() since the values
 # are strings if present
@@ -204,98 +200,75 @@ def main(args):
     markers_raw.to_csv(args.markerout, index=False)
 
     # Processing metadata - highly adapted to Lunaphore outputs
-    # check if metadata is present
-    try:
-        print(img_raw.metadata.images[0])
-        metadata = img_raw.metadata
-        metadata = process_metadata(img_raw.metadata, markers)
-    except:
-        metadata = None   
-
+    metadata = img_raw.metadata
+    metadata = process_metadata(img_raw.metadata, markers)
+    
     if args.pixel_size != None:
         # If specified, the input pixel size is used
-        pixel_size = args.pixel_size   
-
+        pixel_size = args.pixel_size
+    elif img_raw.metadata.images[0].pixels.physical_size_x != None:
+        # If pixel size is not specified, the metadata is checked (the script trusts users more than metadata)
+        pixel_size = img_raw.metadata.images[0].pixels.physical_size_x
     else:
-        try:
-            if img_raw.metadata.images[0].pixels.physical_size_x != None:
-                pixel_size = img_raw.metadata.images[0].pixels.physical_size_x
-            else:
-                pixel_size = 1.0
-        except:
-            # If no pixel size specified anywhere, use default 1.0
-            pixel_size = 1.0
-    if (args.pyramid == True) and (int(args.tile_size)<=max(output[0].shape)):
-            
-        # construct levels
-        tile_size = int(args.tile_size)
-        scale = 2
+        # If no pixel size specified anywhere, use default 1.0
+        pixel_size = 1.0
 
+    # construct levels
+    tile_size = 1024
+    scale = 2
+
+    print()
+    dtype = output.dtype
+    base_shape = output[0].shape
+    num_channels = output.shape[0]
+    num_levels = (np.ceil(np.log2(max(base_shape) / tile_size)) + 1).astype(int)
+    factors = 2 ** np.arange(num_levels)
+    shapes = (np.ceil(np.array(base_shape) / factors[:,None])).astype(int)
+
+    print("Pyramid level sizes: ")
+    for i, shape in enumerate(shapes):
+        print(f"   level {i+1}: {format_shape(shape)}", end="")
+        if i == 0:
+            print("(original size)", end="")
         print()
-        dtype = output.dtype
-        base_shape = output[0].shape
-        num_channels = output.shape[0]
-        num_levels = (np.ceil(np.log2(max(base_shape) / tile_size)) + 1).astype(int)
-        factors = 2 ** np.arange(num_levels)
-        shapes = (np.ceil(np.array(base_shape) / factors[:,None])).astype(int)
-        print(base_shape)
-        print(np.ceil(np.log2(max(base_shape)/tile_size))+1)
+    print()
+    print(shapes)  
+    
+    level_full_shapes = []
+    for shape in shapes:
+        level_full_shapes.append((num_channels, shape[0], shape[1]))
+    level_shapes = shapes
+    tip_level = np.argmax(np.all(level_shapes < tile_size, axis=1))
+    tile_shapes = [
+        (tile_size, tile_size) if i <= tip_level else None
+        for i in range(len(level_shapes))
+    ]
 
-        print("Pyramid level sizes: ")
-        for i, shape in enumerate(shapes):
-            print(f"   level {i+1}: {format_shape(shape)}", end="")
-            if i == 0:
-                print("(original size)", end="")
-            print()
-        print()
-        print(shapes)  
-
-        level_full_shapes = []
-        for shape in shapes:
-            level_full_shapes.append((num_channels, shape[0], shape[1]))
-        level_shapes = shapes
-        tip_level = np.argmax(np.all(level_shapes < tile_size, axis=1))
-        tile_shapes = [
-            (tile_size, tile_size) if i <= tip_level else None
-            for i in range(len(level_shapes))
-        ]
-        
-        # write pyramid
-        with tifffile.TiffWriter(args.output, ome=True, bigtiff=True) as tiff:
+    # write pyramid
+    with tifffile.TiffWriter(args.output, ome=True, bigtiff=True) as tiff:
+        tiff.write(
+            data = output,
+            shape = level_full_shapes[0],
+            subifds=int(num_levels-1),
+            dtype=dtype,
+            resolution=(10000 / pixel_size, 10000 / pixel_size, "centimeter"),
+            tile=tile_shapes[0]
+        )
+        for level, (shape, tile_shape) in enumerate(
+                zip(level_full_shapes[1:], tile_shapes[1:]), 1
+        ):
             tiff.write(
-                data = output,
-                shape = level_full_shapes[0],
-                subifds=int(num_levels-1),
+                data = subres_tiles(level, level_full_shapes, tile_shapes, args.output, scale),
+                shape=shape,
+                subfiletype=1,
                 dtype=dtype,
-                resolution=(10000 / pixel_size, 10000 / pixel_size, "centimeter"),
-                tile=tile_shapes[0]
+                tile=tile_shape
             )
-            for level, (shape, tile_shape) in enumerate(
-                    zip(level_full_shapes[1:], tile_shapes[1:]), 1
-            ):
-                tiff.write(
-                    data = subres_tiles(level, level_full_shapes, tile_shapes, args.output, scale),
-                    shape=shape,
-                    subfiletype=1,
-                    dtype=dtype,
-                    tile=tile_shape
-                )
-    else:
-        # write image
-        with tifffile.TiffWriter(args.output, ome=True, bigtiff=True) as tiff:
-            tiff.write(
-                data = output,
-                shape = output.shape,
-                dtype=output.dtype,
-                resolution=(10000 / pixel_size, 10000 / pixel_size, "centimeter"),
-            )
-    try:
-        tifffile.tiffcomment(args.output, to_xml(metadata))
-    except:
-        pass
+
     # note about metadata: the channels, planes etc were adjusted not to include the removed channels, however
     # the channel ids have stayed the same as before removal. E.g if channels 1 and 2 are removed,
     # the channel ids in the metadata will skip indices 1 and 2 (channel_id:0, channel_id:3, channel_id:4 ...)
+    tifffile.tiffcomment(args.output, to_xml(metadata))
     print()
 
         

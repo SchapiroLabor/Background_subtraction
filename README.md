@@ -1,6 +1,6 @@
 # Background_subtraction
 
-Background subtraction for COMET platform
+Pixel-by-pixel channel subtraction scaled by exposure times, primarily developed for images produced by the COMET platform and to work within the MCMICRO pipeline. Main usecase is autuofluorescence subtraction for multichannel and multicycle images for visualization of images from tissues with high autofluroescence (FFPE), improved segmentation, and quantification (if the previous two usecases aren't necessary, downstream subtraction of autofluorescent signal is encouraged as the script is memory inefficent).
 
 ## Introduction
 
@@ -30,17 +30,17 @@ The script requires four inputs:
 * the path to the output image given with `-o` or `--output`
 * the path to the `markers.csv` file given with `-m` or `--markers`
 * the path to the markers output file given with `-mo` or `--markerout`
+Optional inputs:
+* `--pixel-size` to specify the pixel size of the input image (default: `1.0`), if not specified, the pixel size will be read from the metadata of the input image.
+* `--version` to print version and exit (added in v0.3.4)
+* `--pyramid` to create a pyramidal output image (default: `True`) (added in v0.3.4)
+* `--tile-size` to specify the tile size for the pyramidal output image (default: `1024`) (added in v0.3.4)
 
 
 ### Output
 
-The output file will be a pyramidal `ome.tif` file containing the processed channels with a subtracted scaled background. The channels tagged for removal will be excluded from the final image.
-
-Metadata:
-* channel names - as given in input image
-* image name - "Background subtracted image" to easily differentiate between it and the original image
-* physical pixel size - as given in input image
-
+The output image file will be a pyramidal `ome.tif` file containing the processed channels. The channels tagged for removal will be excluded from the final image.
+The output markers file will be a `csv` file containing the following columns: "marker_name", "background", "exposure". The "marker_name" column will contain the marker names of the processed channels. The "background" column will contain the marker names of the channels used for subtraction. The "exposure" column will contain the exposure times of the processed channels. 
 
 ### Docker usage
 
