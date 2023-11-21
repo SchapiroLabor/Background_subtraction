@@ -16,5 +16,8 @@ Added `CHANGELOG.md`.
 ### `Fixed`
 - Fixed issue with RAM inefficiency - reworked Backsub.
 
+### `Removed`
+- `--pyramid` tag introduced in v0.3.4, for smaller images, a smaller tile size should be specified now.
+
 
 I did not keep a changelog before version v0.4.1.
