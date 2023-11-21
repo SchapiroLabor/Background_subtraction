@@ -33,8 +33,8 @@ The script requires four inputs:
 Optional inputs:
 * `--pixel-size` to specify the pixel size of the input image (default: `1.0`), if not specified, the pixel size will be read from the metadata of the input image.
 * `--version` to print version and exit (added in v0.3.4)
-* `--pyramid` to create a pyramidal output image (default: `True`) (added in v0.3.4)
 * `--tile-size` to specify the tile size for the pyramidal output image (default: `1024`) (added in v0.3.4)
+* `--chunk-size` to specify chunk size for delayed calculation execution (default: `5000`) - lower values result in higher execution time, higher values in higher RAM usage
 
 
 ### Output
