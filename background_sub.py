@@ -18,7 +18,6 @@ from loguru import logger
 from argparse import ArgumentParser as AP
 from os.path import abspath
 import time
-import skimage.transform
 ### Using the palom pyramidal writer by Yu-An Chen: https://github.com/labsyspharm/palom/blob/main/palom/pyramid.py
 ### Adapted for this use case - only one image can be processed:
 
@@ -48,7 +47,8 @@ class PyramidSetting:
 
     def num_levels(self, base_shape):
         factor = max(base_shape) / self.max_pyramid_img_size
-        return math.ceil(math.log(factor, self.downscale_factor)) + 1
+        
+        return math.ceil(math.log(max(factor, 1), self.downscale_factor))+1
 
 def format_channel_names(num_channels_each_mosaic, channel_names):
     '''
@@ -145,11 +145,10 @@ def write_pyramid(
             f"tile_size must be None or multiples of 16, not {tile_size}"
         )
         tile_shapes = [(tile_size, tile_size)] * num_levels
-
+    print(tile_shapes)
     dtype = ref_m.dtype
 
-    software = f'palom {_version}'
-    pixel_size = pixel_size
+    software = f'backsub {_version}'
     metadata = {
         'Creator': software,
         'Pixels': {
@@ -360,10 +359,11 @@ def get_args():
     inputs = parser.add_argument_group(title="Required Input", description="Path to required input file")
     inputs.add_argument("-r", "--root", dest="root", action="store", required=True, help="File path to root image file.")
     inputs.add_argument("-m", "--markers", dest="markers", action="store", required=True, help="File path to required markers.csv file")
-    inputs.add_argument("--pixel-size", metavar="SIZE", dest = "pixel_size", type=float, default = None, action = "store",help="pixel size in microns; default is 1.0")
+    inputs.add_argument("--pixel-size", metavar="SIZE", dest = "pixel_size", type=float, default = None, action = "store",help="Pixel size in microns")
     inputs.add_argument("--tile-size", dest="tile_size", required=False, type=int, default=1024, help="Tile size for pyramid generation")
-    inputs.add_argument("--save-ram", dest="ram", required=False, default=False, help="Save RAM during pyramid generation")
-    inputs.add_argument("--version", action="version", version="v0.4.0")
+    #inputs.add_argument("--save-ram", dest="ram", required=False, default=False, help="Save RAM during pyramid generation")
+    inputs.add_argument("--chunk-size", dest="chunksize", required=False, type=int, default=5000, help="Chunk size for dask array (e.g for chunksize 1000, the image will be split into 1000x1000 chunks)")
+    inputs.add_argument("--version", action="version", version="v0.4.1")
     
     outputs = parser.add_argument_group(title="Output", description="Path to output file")
     outputs.add_argument("-o", "--output", dest="output", action="store", required=True, help="Path to output file")
@@ -380,15 +380,10 @@ def get_args():
     return arg
 
 def main(args):
-    _version = 'v0.4.0'
+    _version = 'v0.4.1'
     in_path = args.root
 
-    # Automatically infer the output filename, if not specified
-    if args.output is None:
-        stem = in_path.stem
-        out_path = in_path.parent / f"{stem}.ome.tif"
-    else:
-        out_path = pathlib.Path(args.output)
+    out_path = pathlib.Path(args.output)
     # pixel data is read into RAM lazily, cannot overwrite input file
     assert out_path != in_path
 
@@ -398,11 +393,12 @@ def main(args):
 
     markers = process_markers(pd.read_csv(args.markers))
 
-    # Use palom to pyramidize the input image
-    readers = [palom.reader.OmePyramidReader(in_path)]
-    mosaics = [readers[0].pyramid[0]]
-    mosaics_out = copy.copy(mosaics)
-    chunk_size = (512,512)
+    # Use palom to lazily read the input image
+    readers = palom.reader.OmePyramidReader(in_path)
+    mosaic = readers.pyramid[0]
+    mosaic_out = copy.copy(mosaic)
+    chunk_size = (args.chunksize,args.chunksize)
+    mosaic_out = mosaic_out.rechunk((1,args.chunksize,args.chunksize))
 
     for channel in range(len(markers)):
         if markers.background.isnull()[channel] == True:
@@ -410,22 +406,22 @@ def main(args):
         else:
             background_marker = markers.iloc[np.array(markers.marker_name == markers.background[channel])]
             scalar = markers[markers.ind == channel].exposure.values / background_marker.exposure.values
-            mosaics_out[0][channel] = subtract_channels(mosaics[0][channel], mosaics[0][background_marker.ind.values[0]], scalar, chunk_size)
+            mosaic_out[channel] = subtract_channels(mosaic[channel], mosaic[background_marker.ind.values[0]], scalar, chunk_size)
             print(f"Channel {markers.marker_name[channel]} ({channel}) processed, background subtraction")
 
     # removes channels from the image as specified in the markers file
-    mosaics_out[0] = mosaics_out[0][np.where(markers.keep)[0]]
+    mosaic_out = mosaic_out[np.where(markers.keep)[0]]
     channel_names = list(markers.marker_name[markers.keep])
 
     write_pyramid(
-        mosaics_out, out_path, channel_names=channel_names, downscale_factor=2, pixel_size=pixel_size, save_RAM=False
+        [mosaic_out], out_path, channel_names=channel_names, downscale_factor=2, pixel_size=pixel_size, save_RAM=False, tile_size=args.tile_size
     )
     markers = markers[markers.keep]
     markers = markers.drop(columns=['keep','ind'])
     markers.to_csv(args.markerout, index=False)
 
 if __name__ == '__main__':
-    _version = 'v0.4.0'
+    _version = 'v0.4.1'
     args = get_args()
 
     # Run script
