@@ -1,7 +1,13 @@
-FROM mambaorg/micromamba:0.26.0
-COPY --chown=$MAMBA_USER:$MAMBA_USER environment.yml /tmp/env.yaml
-RUN micromamba install -y -n base -f /tmp/env.yaml && \
-    micromamba clean --all --yes
-ENV PATH="${PATH}:/opt/conda/bin"
+FROM continuumio/miniconda3
+
+COPY environment.yml .
+RUN apt-get update -qq && apt-get install -y \
+    build-essential \
+    ffmpeg \
+    libsm6 \
+    libxext6
+
+RUN conda env create -f environment.yml
+ENV PATH="/opt/conda/envs/backsub/bin:$PATH"
 WORKDIR /background_subtraction
 COPY . .
