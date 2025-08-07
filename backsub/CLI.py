@@ -11,8 +11,7 @@ def get_args():
     parser = AP(description=description, formatter_class=argparse.RawDescriptionHelpFormatter)
 
     # INPUTS
-    inputs = parser.add_argument_group(title="Required Input", 
-                                       description="Path to required input file")
+    inputs = parser.add_argument_group(title="INPUTS")
     
     inputs.add_argument("-r", 
                         "--root", 
@@ -40,33 +39,25 @@ def get_args():
                         help="Pixel size in microns"
                         )
     
-    inputs.add_argument("--tile-size", 
-                        dest="tile_size", 
+
+    inputs.add_argument("-pl",
+                        "--pyramid_levels", 
+                        dest="pyramid_levels", 
                         required=False, 
                         type=int, 
-                        default=1024, 
+                        default=8, 
                         help="Tile size for pyramid generation"
                         )
-    
-    inputs.add_argument("--chunk-size", 
-                        dest="chunksize", 
-                        required=False, 
-                        type=int, 
-                        default=5000, 
-                        help="""Chunk size for dask array (e.g for chunksize 1000, 
-                        the image will be split into 1000x1000 chunks)"""
-                        )
+
     
     #VERSION CONTROL
     inputs.add_argument("--version", 
                         action="version", 
-                        version="v0.4.1"
+                        version="v0.5.0"
                         )
     
     #OUTPUTS
-    outputs = parser.add_argument_group(title="Output", 
-                                        description="Path to output file"
-                                        )
+    outputs = parser.add_argument_group(title="OUTPUTS")
 
     outputs.add_argument("-o", 
                          "--output", 

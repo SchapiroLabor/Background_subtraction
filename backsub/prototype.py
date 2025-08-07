@@ -1,11 +1,9 @@
 #standard libraries
-import argparse
 import pathlib
 import ome_types
 import pandas as pd
 import numpy as np
 import tifffile as tifff
-import tqdm
 from loguru import logger
 from skimage.transform import pyramid_gaussian
 import time
