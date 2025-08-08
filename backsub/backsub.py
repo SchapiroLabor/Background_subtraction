@@ -1,6 +1,4 @@
 #standard libraries
-import pathlib
-import ome_types
 import pandas as pd
 import numpy as np
 import tifffile as tifff
@@ -8,9 +6,11 @@ from loguru import logger
 from skimage.transform import pyramid_gaussian
 import time
 import dask.array as da
-from dask.diagnostics import Profiler,ProgressBar,ResourceProfiler, CacheProfiler
+from dask.diagnostics import ProgressBar,ResourceProfiler
+import tracemalloc
 #local libraries
 import CLI
+import ome_writer
 
 
 def process_markers(markers):
@@ -50,27 +50,40 @@ def process_markers(markers):
 
 def extract_img_props(img_path,pixel_size=None):
 
+    
+
+    #pixel_size_unit="µm"
     #Checks if image has pyramidal levels
     with tifff.TiffFile(img_path) as tif:
         pyr_levels=len(tif.series[0].levels)
         is_pyramid=pyr_levels > 1
         data_type=tif.series[0].dtype.name
+        height,width=tif.series[0].shape[-2::]
 
     #Try to extract pixel size from ome-xml
     if pixel_size is None:
-        print('Pixel size overwrite not specified')
+        print('Pixel size not specified in the arguments (-mpp)')
         try:
             metadata = ome_types.from_tiff(img_path)
             pixel_size = metadata.images[0].pixels.physical_size_x
+            pixel_size_unit = metadata.images[0].pixels.physical_size_x_unit
         except Exception as err:
             print(err)
-            print('Pixel size detection using ome-types failed')
-            pixel_size = None
+            print('Pixel size or pixel size unit detection using ome-types failed')
+            pixel_size = 1
+            pixel_size_unit="pixel"
+    else:
+        pixel_size=0.001*pixel_size
+        pixel_size_unit="mm"
 
+    
     img_props={"pixel_size":pixel_size,
+               "pixel_size_unit":pixel_size_unit,
                "data_type":data_type,
                "pyramid":is_pyramid,
-               "levels":pyr_levels
+               "levels":pyr_levels,
+               "size_x":width,
+               "size_y":height ,
                }
     
     return img_props
@@ -100,14 +113,14 @@ def subtract_channels(src_img_path, markers_info,ref_dtype):
 
             subtraction=da.clip( signal-( da.rint(factor*background) ),0,65535).astype(ref_dtype)
 
-            logger.info(f"{operation_count} Calculating subtraction of background {channel.background}  from {channel.marker_name} signal  \n")
+            print(f"\n {operation_count} Calculating subtraction of background {channel.background}  from {channel.marker_name} signal:")
 
             with ResourceProfiler(dt=0.25) as resources:
                 with ProgressBar():
                     arr=subtraction.compute()
 
-            logger.info(f"Resources used by dask during subtraction {operation_count} \n")
-            print(resources.results[0],"([sec,MB,% CPU usage])")
+            print(f"Resources used by dask during subtraction {operation_count}:")
+            print(resources.results[0],"([sec],[MB],[% CPU usage])")
             count+=1
             yield (arr,"calculate",np.nan)
 
@@ -162,45 +175,44 @@ def write_pyramid(img_instances,
                         compression="lzw"#lzw works better when saving channel-by-channel and jpeg 2000 when saving the whole stack at once
                         )
                 
-    #tifff.tiffcomment(out_file_path, ome_xml)
+    return out_file_path
 
 
-
-
-
-
-
-def main():
+def main(version):
     args=CLI.get_args()
     in_path = args.root
     out_path = args.output
-
     #Pixel data is read into RAM lazily, cannot overwrite input file
     assert out_path != in_path
 
     # Extract image properties
-    src_props = extract_img_props(in_path, args.pixel_size)
-    # Modify pixel_size and pyramid_levels if required
-    if src_props["pixel_size"] is None:
-        src_props["pixel_size"] = 1
-
+    src_props = extract_img_props(in_path, args.pixel_size,)
+    # Modify pyramid_levels if required
     if src_props["pyramid"]:
         levels=src_props["levels"]
     else:
-        levels=args.pyramid_levels#if not given in the CLI args this will take the default value of 8
+        levels=args.pyramid_levels
 
     #Update markers data_frame to include processing information
     markers = process_markers(pd.read_csv(args.markers))
     markers_updated=markers.loc[ markers.keep]
-    logger.info("Data was processed with the following info:\n{}", markers_updated)
-
-    #Allocate subtraction operation using generators 
+    logger.info("\nTASKS PREVIEW:\n{}",markers_updated)
+    tasks=1
+    for _,channel in markers_updated.iterrows():
+        if channel.processed: 
+            print(f"\n({tasks})Channel {channel.marker_name} ({channel.background}) processed, background subtraction")
+            tasks+=1
+    #Allocate subtraction operation using generators
     img_generator=subtract_channels(in_path,markers_updated,src_props["data_type"])
-    
+
     #Write pyramidal file
-    out_file_name=f"backsub_{in_path.stem}"
-    logger.info(f"Commencing writing of pyramidal image into {out_path}/{out_file_name}")
-    write_pyramid(img_generator,
+    out_file_name=f"backsub_{in_path.stem}.ome.tif"
+    logger.info(f"\nTASKS PROGRESS" )
+
+    print(f"\nCommencing writing of pyramidal ome.tif file into {out_path}/{out_file_name}")
+    print(f"\nCommencing subtraction tasks\n")
+
+    pyramid_abs_path=write_pyramid(img_generator,
                     in_path,
                     out_path,
                     levels,
@@ -209,19 +221,33 @@ def main():
                     calc_lvls=(not src_props["pyramid"])
                     )
     
-    logger.info(f'Pyramidal image with {levels} levels was successfully written ')
+    #Write metadata in OME format into the pyramidal file
+    channel_names=markers_updated["marker_name"].tolist()
+    ome_xml=ome_writer.create_ome(channel_names,src_props,version)
+    tifff.tiffcomment(pyramid_abs_path, ome_xml)
+
+    logger.info(f'\nSCRIPT FINISHED PROCESSING TASKS ')
+    print(f'\nPyramidal image with {levels} levels was successfully written ')
 
 
-    
+
 
 if __name__ == '__main__':
     _version = 'v0.5.0'
 
     # Run script
+    tracemalloc.start()
     st = time.time()
-    main()
+
+    main(_version)
+
+    logger.info(f'\nRESOURCES USED')
+    print("Memory peak:",((10**(-9))*tracemalloc.get_traced_memory()[1],"GB"))
+
     rt = time.time() - st
+    tracemalloc.stop()
     print(f"Script finished in {rt // 60:.0f}m {rt % 60:.0f}s")
+    
 
 
 

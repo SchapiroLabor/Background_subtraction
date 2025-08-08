@@ -5,7 +5,12 @@ from argparse import ArgumentParser as AP
 #---CLI-BLOCK---#
 def get_args():
     # Script description
-    description="""Subtracts background - Lunaphore platform"""
+    description="""
+                Subtracts background from an image (signal) 
+                acquired with fluorescence microscopy.  
+                Subtraction is carried out via the formula (SignalImage-factor*BackgroundImage), 
+                where factor is the ratio between exposure times of both images.
+                """
 
     # Add parser
     parser = AP(description=description, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -30,13 +35,14 @@ def get_args():
                         help="File path to required markers.csv file"
                         )
     
-    inputs.add_argument("--pixel-size", 
+    inputs.add_argument("-mpp",
+                        "--pixel-size", 
                         metavar="SIZE", 
                         dest = "pixel_size", 
                         type=float, 
                         default = None, 
                         action = "store",
-                        help="Pixel size in microns"
+                        help="pixel size in microns,i.e. microns per pixel(mpp)"
                         )
     
 
