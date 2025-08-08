@@ -52,7 +52,7 @@ def get_args():
                         required=False, 
                         type=int, 
                         default=8, 
-                        help="Tile size for pyramid generation"
+                        help="Total number of pyramid levels.  This value will be only used if the input image is NOT pyramidal" 
                         )
 
     
