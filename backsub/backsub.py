@@ -50,9 +50,6 @@ def process_markers(markers):
 
 def extract_img_props(img_path,pixel_size=None):
 
-    
-
-    #pixel_size_unit="µm"
     #Checks if image has pyramidal levels
     with tifff.TiffFile(img_path) as tif:
         pyr_levels=len(tif.series[0].levels)
@@ -74,7 +71,7 @@ def extract_img_props(img_path,pixel_size=None):
             pixel_size_unit="pixel"
     else:
         pixel_size=0.001*pixel_size
-        pixel_size_unit="mm"
+        pixel_size_unit="µm"
 
     
     img_props={"pixel_size":pixel_size,
@@ -224,7 +221,11 @@ def main(version):
     #Write metadata in OME format into the pyramidal file
     channel_names=markers_updated["marker_name"].tolist()
     ome_xml=ome_writer.create_ome(channel_names,src_props,version)
-    tifff.tiffcomment(pyramid_abs_path, ome_xml)
+    tifff.tiffcomment(pyramid_abs_path, ome_xml.encode("utf-8"))
+
+    #Write updated markers.csv
+    markers_updated = markers_updated.drop(columns=['keep','ind','processed','factor','bg_idx'])
+    markers_updated .to_csv(args.markerout / "markers_bs.csv", index=False)
 
     logger.info(f'\nSCRIPT FINISHED PROCESSING TASKS ')
     print(f'\nPyramidal image with {levels} levels was successfully written ')
