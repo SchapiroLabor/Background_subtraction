@@ -70,7 +70,7 @@ def extract_img_props(img_path,pixel_size=None):
             pixel_size = 1
             pixel_size_unit="pixel"
     else:
-        pixel_size=0.001*pixel_size
+        pixel_size=pixel_size
         pixel_size_unit="µm"
 
     
