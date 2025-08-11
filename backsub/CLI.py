@@ -54,8 +54,16 @@ def get_args():
                         default=8, 
                         help="Total number of pyramid levels.  This value will be only used if the input image is NOT pyramidal" 
                         )
-
     
+
+    inputs.add_argument('-sr',
+                    '--save_ram',
+                    action='store_true',
+                    help="""saves about half of RAM by 
+                            constraining the calculation of the pyramid
+                            to float32 data type.
+                            """
+                    )
     #VERSION CONTROL
     inputs.add_argument("--version", 
                         action="version", 
@@ -75,12 +83,12 @@ def get_args():
                          )
     
     outputs.add_argument("-mo", 
-                         "--marker-output", 
+                         "--marker-output",
                          dest="markerout", 
                          action="store",
                          type=pathlib.Path,
                          required=True, 
-                         help="Path to output marker file"
+                         help="Path to the output .csv marker file"
                          )
 
     arg = parser.parse_args()
