@@ -81,7 +81,9 @@ def extract_img_props(img_path,pixel_size=None):
     with tifff.TiffFile(img_path) as tif:
         pyr_levels=len(tif.series[0].levels)
         is_pyramid=pyr_levels > 1
+        dask_chunksize=da.from_array(tifff.imread(img_path,series=0,level=0,key=0), chunks="auto").chunksize
         is_tiled=tif.series[0].levels[0].pages[0].is_tiled
+
         if is_tiled:
             tile_size=tif.series[0].levels[0].pages[0].tile
         else:
@@ -114,7 +116,8 @@ def extract_img_props(img_path,pixel_size=None):
                 "levels":pyr_levels,
                 "size_x":width,
                 "size_y":height ,
-                "file_tile_size":tile_size
+                "file_tile_size":tile_size,
+                "auto_chunksize":dask_chunksize
                }
     
     return img_props
@@ -269,8 +272,7 @@ def main(version):
             print(f"\n({tasks})Channel {channel.marker_name} ({channel.background}) processed, background subtraction")
             tasks+=1
     #Allocate subtraction operation using generators
-    img_generator=subtract_channels(in_path,markers_updated,src_props["data_type"],src_props["file_tile_size"])
-
+    img_generator=subtract_channels(in_path,markers_updated,src_props["data_type"],src_props["auto_chunksize"])
     #Write pyramidal file
     out_file_name=f"{(in_path.stem).split(".ome")[0]}_backsub.ome.tif"
     
