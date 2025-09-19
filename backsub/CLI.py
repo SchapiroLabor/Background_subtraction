@@ -52,7 +52,10 @@ def get_args():
                         required=False, 
                         type=int, 
                         default=8, 
-                        help="Total number of pyramid levels.  This value will be only used if the input image is NOT pyramidal" 
+                        help="""Total number of pyramid levels.
+                        This value will be only used if the input image is NOT pyramidal.
+                        If input image is pyramidal, the number of levels in the output image will be the same as in the input.
+                        """
                         )
     
 
