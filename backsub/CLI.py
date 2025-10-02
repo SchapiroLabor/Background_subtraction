@@ -15,8 +15,9 @@ def get_args():
     # Add parser
     parser = AP(description=description, formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    # INPUTS
+    # INPUT GROUPS
     inputs = parser.add_argument_group(title="INPUTS")
+    input_markers_table = parser.add_mutually_exclusive_group(required=True)
     
     inputs.add_argument("-r", 
                         "--root", 
@@ -26,26 +27,37 @@ def get_args():
                         required=True, 
                         help="File path to root image file.")
     
-    inputs.add_argument("-m", 
+    input_markers_table.add_argument("-m", 
                         "--markers", 
                         dest="markers", 
                         action="store",
                         type=pathlib.Path,
-                        required=True, 
-                        help="File path to required markers.csv file"
+                        help="""File path to the markers.csv file containing the list of marker names
+                        and its respective background channels.
+                        """
+                        )
+    
+    input_markers_table.add_argument("-tspc-comet",
+                        "--tspc_background_protocol",
+                        action='store_true',
+                        help="""Flag to obtain the markers table on the fly for images acquired with 
+                        the reference background acquisition implemented in the TSPC (https://www.tspc-hd.com/).
+                        When this flag is used, the argument --markers is ignored since 
+                        the markers information will be extracted from the metadata of the input image.
+                        """
                         )
     
     inputs.add_argument("-mpp",
                         "--pixel-size", 
                         metavar="SIZE", 
-                        dest = "pixel_size", 
+                        dest = "pixel_size",
+                        required=False,
                         type=float, 
                         default = None, 
                         action = "store",
                         help="pixel size in microns,i.e. microns per pixel(mpp)"
                         )
     
-
     inputs.add_argument("-pl",
                         "--pyramid_levels", 
                         dest="pyramid_levels", 
@@ -54,19 +66,22 @@ def get_args():
                         default=8, 
                         help="""Total number of pyramid levels.
                         This value will be only used if the input image is NOT pyramidal.
-                        If input image is pyramidal, the number of levels in the output image will be the same as in the input.
+                        If input image is pyramidal, the number of levels in the output image 
+                        will be the same as in the input.
                         """
                         )
     
-
+    """
+    TODO: work on the save_ram feature,specifically match dimensions of pyramidal levels of src_image
     inputs.add_argument('-sr',
                     '--save_ram',
                     action='store_true',
-                    help="""saves about half of RAM by 
+                    help=saves about half of RAM by 
                             constraining the calculation of the pyramid
                             to float32 data type.
-                            """
+                            
                     )
+    """
     #VERSION CONTROL
     inputs.add_argument("--version", 
                         action="version", 

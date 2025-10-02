@@ -12,31 +12,24 @@ from dask_image.ndfilters import gaussian_filter
 from skimage.util import img_as_float32
 from skimage.exposure import rescale_intensity
 import ome_types
-import  zarr
 #local libraries
 import CLI
 import ome_writer
 
+
 def pyramid_float32(img_arr,sub_levels,down_factor=2):
-    #std_dev=np.ceil((down_factor - 1)/2) # This comes from the pyramid_gaussian implementation in scikit-image
-    std_dev=down_factor
+    std_dev=np.ceil((down_factor - 1)/2)
     height,width=img_arr.shape
     val_range=(np.min(img_arr), np.max(img_arr))
     ref_dtype=img_arr.dtype.name
     factor_schedule=[ 2**i for i in range(1,sub_levels+1) ]
     dim_schedule= [np.ceil([height/f,width/f]) for f in factor_schedule]
     img_aux=img_arr
-    yield img_aux
     for dims in dim_schedule:
         img_dask=da.from_array(img_aux,chunks="auto")
-        img_aux=img_as_float32(gaussian_filter(da.block(img_dask), sigma=std_dev, order=0,truncate=down_factor+1).compute())
-        img_aux=resize(img_aux, dims, order=1, preserve_range=True, anti_aliasing=False)
-        img_aux=rescale_intensity(img_aux,out_range=val_range).astype(ref_dtype)
-        """
-        result=gaussian_filter(da.block(img_dask), sigma=std_dev, order=0,truncate=down_factor+1)
+        result=gaussian_filter(da.block(img_dask), sigma=std_dev, order=0,truncate=3)
         img_aux=resize(img_as_float32(result.compute()), dims, order=1, preserve_range=True, anti_aliasing=False)
         img_aux=rescale_intensity(img_aux,out_range=val_range).astype(ref_dtype)
-        """
         yield img_aux
 
 
@@ -81,16 +74,9 @@ def extract_img_props(img_path,pixel_size=None):
     with tifff.TiffFile(img_path) as tif:
         pyr_levels=len(tif.series[0].levels)
         is_pyramid=pyr_levels > 1
-        dask_chunksize=da.from_array(tifff.imread(img_path,series=0,level=0,key=0), chunks="auto").chunksize
-        is_tiled=tif.series[0].levels[0].pages[0].is_tiled
-
-        if is_tiled:
-            tile_size=tif.series[0].levels[0].pages[0].tile
-        else:
-            tile_size=None
-        
         data_type=tif.series[0].dtype.name
         height,width=tif.series[0].shape[-2::]
+        dask_chunksize=da.from_array(tif.pages[0].asarray(), chunks='auto').chunksize
     #Try to extract pixel size from ome-xml
     if pixel_size is None:
         print('Pixel size not specified in the arguments (-mpp)')
@@ -110,17 +96,16 @@ def extract_img_props(img_path,pixel_size=None):
     
     img_props={"pixel_size":pixel_size,
                "pixel_size_unit":pixel_size_unit,
-                "data_type":data_type,
-                "pyramid":is_pyramid,
-                "tiled":is_tiled,
-                "levels":pyr_levels,
-                "size_x":width,
-                "size_y":height ,
-                "file_tile_size":tile_size,
-                "auto_chunksize":dask_chunksize
+               "data_type":data_type,
+               "pyramid":is_pyramid,
+               "levels":pyr_levels,
+               "size_x":width,
+               "size_y":height ,
+               "chunksize":dask_chunksize
                }
     
     return img_props
+
 
 def subtract_channels(src_img_path, markers_info,ref_dtype,ref_chunksize):
     """
@@ -141,19 +126,12 @@ def subtract_channels(src_img_path, markers_info,ref_dtype,ref_chunksize):
             operation_count=f"({count}/{total_operations})"
             factor=np.float32(channel.factor)#limiting precision to float32 saves memory
 
-            signal_as_zarr = zarr.open( tifff.imread( src_img_path, aszarr=True, series=0, level=0,key=int(channel.ind) ) )
-            background_as_zarr =zarr.open( tifff.imread( src_img_path, aszarr=True, series=0, level=0,key=int(channel.bg_idx) ) )
-            signal=da.from_zarr(signal_as_zarr, chunks=ref_chunksize )
-            background=da.from_zarr(background_as_zarr, chunks=ref_chunksize )
-            subtraction=da.clip(signal-factor*background,0,65535).astype(ref_dtype)
-
-            """
             signal=da.from_array(tifff.imread(src_img_path,series=0,level=0,key=int(channel.ind)), chunks=ref_chunksize)
             
             background=da.from_array(tifff.imread(src_img_path,series=0,level=0,key=int(channel.bg_idx)), chunks=ref_chunksize)
 
             subtraction=da.clip( signal-( da.rint(factor*background) ),0,65535).astype(ref_dtype)
-            """
+
             print(f"\n {operation_count} Calculating subtraction of background {channel.background}  from {channel.marker_name} signal:")
 
             with ResourceProfiler(dt=0.25) as resources:
@@ -166,14 +144,7 @@ def subtract_channels(src_img_path, markers_info,ref_dtype,ref_chunksize):
             yield (arr,"calculate",np.nan)
 
         else:
-            yield ( None,"extract",int(channel.ind))
-
-
-def extract_levels_from_tiff(path,ch,levs):
-    with tifff.TiffFile(path) as tif:
-        for l in range(levs):
-            yield tif.series[0].levels[l].pages[ch].asarray()
-
+            yield ( tifff.imread(src_img_path,series=0,level=0,key=int(channel.ind)),"extract",int(channel.ind))
 
 
 def write_pyramid(img_instances,
@@ -181,32 +152,21 @@ def write_pyramid(img_instances,
                     outdir,
                     levels,
                     file_name,
-                    img_data_type,
-                    calc_lvls=True
+                    src_data_type,
+                    calc_lvls=True,
+                    save_ram=False
                     ):
 
     outdir.mkdir(parents=True, exist_ok=True)
     #out_file_path= outdir / f'{file_name}.tif'
     out_file_path=outdir / file_name
     sub_levels=levels-1
-    pyramidal_items=[]
 
-    for img,pyramid_action,chann_idx in img_instances:
-        first_layer=img
-        #Create pyramidal levels accordingly
-        if ( pyramid_action=="calculate" or calc_lvls ):
-            pyramidal_items.append( pyramid_float32(first_layer,sub_levels) )
-
-        elif pyramid_action=="extract":
-            #TODO_dont extract first layer just sublayers
-            pyramidal_items.append( extract_levels_from_tiff(src_img_path,chann_idx,levels) )
-
-    with tifff.TiffWriter(out_file_path, ome=False, bigtiff=True) as tif:
+    with tifff.TiffWriter(out_file_path,bigtiff=True) as tif:
         #write first the original resolution image,i.e. first layer
-        """
         for img,pyramid_action,chann_idx in img_instances:
             first_layer=img
-            #Create pyramidal levels accordingly
+                        #Create pyramidal levels accordingly
             if ( pyramid_action=="calculate" or calc_lvls ):
                 if save_ram:
                     pyramid=pyramid_float32(first_layer,sub_levels)
@@ -218,25 +178,22 @@ def write_pyramid(img_instances,
                 #TODO_dont extract first layer just sublayers
                 pyramid=( tifff.imread(src_img_path,series=0,level=L,key=chann_idx) for L in range(1,levels)  )
 
-            """
+
             #skip first layer
-            #Write first layer of the pyramid,i.e. full size imag
-        for channel_generator in pyramidal_items:
-            for layer,img_layer in enumerate(channel_generator):
-                if layer==0:
+            #Write first layer of the pyramid,i.e. full size image
+            tif.write(
+                    first_layer.astype(src_data_type),
+                    #description="",
+                    subifds=sub_levels,
+                    #metadata=False,  # do not write tifffile metadata
+                    tile=(256, 256),
+                    photometric='minisblack',
+                    compression="lzw"
+                        )
+            
+            for sub_layer in pyramid:
                     tif.write(
-                        img_layer.astype(img_data_type),
-                        description="",
-                        subifds=sub_levels,
-                        metadata=False,  # do not write tifffile metadata
-                        tile=(256, 256),
-                        photometric='minisblack',
-                        compression="lzw"
-                            )
-                    
-                elif layer>0:
-                    tif.write(
-                        img_layer.astype(img_data_type),
+                        sub_layer.astype(src_data_type),
                         subfiletype=1,
                         metadata=False,
                         tile=(256, 256),
@@ -265,16 +222,18 @@ def main(version):
     #Update markers data_frame to include processing information
     markers = process_markers(pd.read_csv(args.markers))
     markers_updated=markers.loc[ markers.keep]
-    logger.info("\nTASKS PREVIEW:\n{}",markers_updated)
+    
+    #logger.info("\nTASKS PREVIEW:\n{}",markers_updated)
     tasks=1
     for _,channel in markers_updated.iterrows():
         if channel.processed: 
             print(f"\n({tasks})Channel {channel.marker_name} ({channel.background}) processed, background subtraction")
             tasks+=1
     #Allocate subtraction operation using generators
-    img_generator=subtract_channels(in_path,markers_updated,src_props["data_type"],src_props["auto_chunksize"])
+    img_generator=subtract_channels(in_path,markers_updated,src_props["data_type"],src_props["chunksize"])
+
     #Write pyramidal file
-    out_file_name=f"{(in_path.stem).split(".ome")[0]}_backsub.ome.tif"
+    out_file_name=f"backsub_{ (in_path.stem).strip(".ome") }.ome.tif"
     
     logger.info(f"\nTASKS PROGRESS" )
 
@@ -288,21 +247,22 @@ def main(version):
                     levels,
                     out_file_name,
                     src_props["data_type"],
-                    calc_lvls=(not src_props["pyramid"])
+                    calc_lvls=(not src_props["pyramid"]),
+                    save_ram=args.save_ram
                     )
     
     #Write metadata in OME format into the pyramidal file
     channel_names=markers_updated["marker_name"].tolist()
     ome_xml=ome_writer.create_ome(channel_names,src_props,version)
     tifff.tiffcomment(pyramid_abs_path, ome_xml.encode("utf-8"))
-
+    
     #Write updated markers.csv
     markers_updated = markers_updated.drop(columns=['keep','ind','processed','factor','bg_idx'])
     markers_updated .to_csv(args.markerout, index=False)
 
     logger.info(f'\nSCRIPT FINISHED PROCESSING TASKS ')
     print(f'\nPyramidal image with {levels} levels was successfully written ')
-
+    
 
 
 
@@ -314,9 +274,8 @@ if __name__ == '__main__':
     st = time.time()
 
     main(_version)
-    
 
-    logger.info(f'\nRESOURCES USED')
+    #logger.info(f'\nRESOURCES USED')
     print("Memory peak:",((10**(-9))*tracemalloc.get_traced_memory()[1],"GB"))
 
     rt = time.time() - st

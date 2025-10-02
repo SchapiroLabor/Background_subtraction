@@ -35,6 +35,9 @@ Optional inputs:
 * `--version` to print version and exit (added in v0.3.4)
 * `--tile-size` to specify the tile size for the pyramidal output image (default: `1024`) (added in v0.3.4)
 * `--chunk-size` to specify chunk size for delayed calculation execution (default: `5000`) - lower values result in higher execution time, higher values in higher RAM usage
+Hidden input:
+* `--tspc-comet` Flag to obtain the markers table on the fly for images acquired with the reference background acquisition implemented in the Lunaphore Comet at the TSPC (https://www.tspc-hd.com/).
+When this flag is used, the argument `-m`/`--markers` is ignored since the markers information will be extracted from the metadata of the input image.
 
 
 ### Output
