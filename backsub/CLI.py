@@ -40,11 +40,7 @@ def get_args():
     input_markers_table.add_argument("-tspc-comet",
                         "--tspc_background_protocol",
                         action='store_true',
-                        help="""Flag to obtain the markers table on the fly for images acquired with 
-                        the reference background acquisition implemented in the TSPC (https://www.tspc-hd.com/).
-                        When this flag is used, the argument --markers is ignored since 
-                        the markers information will be extracted from the metadata of the input image.
-                        """
+                        help=argparse.SUPPRESS
                         )
     
     inputs.add_argument("-mpp",
