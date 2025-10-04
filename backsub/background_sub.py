@@ -24,7 +24,7 @@ def memocron(func):
         tracemalloc.start()
         st = time.time()
         result=func(*args,**kwargs)
-        logger.info(f'\nRESOURCES USED by {func.__name__} function ')
+        print(f'\nRESOURCES USED by {func.__name__} function ')
         print("Memory peak:",((10**(-9))*tracemalloc.get_traced_memory()[1],"GB"))
         rt = time.time() - st
         tracemalloc.stop()
@@ -33,13 +33,13 @@ def memocron(func):
     return wrapper
 
 
-def pyramid_fast(img_arr,sub_levels,dims_schedule=None):
+def pyramidal_levels(img_arr,sub_levels,dims_schedule=None):
     
     if dims_schedule is None:
         down_factor=2
         height,width=img_arr.shape
         factor_schedule=[ down_factor**i for i in range(1,sub_levels+1) ]
-        dims_schedule= [np.ceil([height/f,width/f]) for f in factor_schedule]
+        dims_schedule= [np.rint([height/f,width/f]) for f in factor_schedule]
     else:
         down_factor=np.rint( 
                             np.mean( [ dims_schedule[i][0]/dims_schedule[i+1][0] 
@@ -53,15 +53,18 @@ def pyramid_fast(img_arr,sub_levels,dims_schedule=None):
     img_aux=img_arr
     for dims in dims_schedule:
         img_dask=da.from_array(img_aux,chunks="auto")
-        result=gaussian_filter(img_dask, sigma=std_dev, order=0,truncate=3)
+        result=gaussian_filter(img_dask, sigma=std_dev, order=0,truncate=down_factor)
         img_aux=resize(img_as_float32(result.compute()), dims, order=1, preserve_range=True, anti_aliasing=False)
-        img_aux=rescale_intensity(img_aux,out_range=val_range).astype(ref_dtype)
+        img_aux=np.rint(rescale_intensity(img_aux,out_range=val_range) ).astype(ref_dtype)
         yield img_aux
 
 
-def pyramid_save_ram(img_arr,sub_levels,chunksize=(2048,2048),down_factor=2):
-    #TODO:need to optimize speed and match dimensions of levels with those of the src image.
-    std_dev=np.ceil((down_factor - 1)/2) 
+def pyramid_save_ram(img_arr,sub_levels):
+    chunksize=(2048,2048)#This value was found to be optimal, in terms of balanced RAM and runtime, for uint16 data
+    down_factor=2
+    #TODO:need to optimize speed and match dimensions of levels with those of the src image
+    ref_dtype=img_arr.dtype.name
+    border_overlap=down_factor-1
     max_val=np.max(img_arr)
     min_val=np.min(img_arr)
     ref_dtype=img_arr.dtype.name
@@ -75,11 +78,15 @@ def pyramid_save_ram(img_arr,sub_levels,chunksize=(2048,2048),down_factor=2):
     for _ in range(sub_levels):
         img_chunk=da.from_array(img_aux,chunks=chunksize)
         float_half=img_chunk.astype("float32")
-        dim_rescale=da.map_overlap(rescale,float_half,depth=int(std_dev)+2,boundary="reflect",**rescale_args)
-        new_min=da.max(dim_rescale).compute()
-        new_max=da.min(dim_rescale).compute()
-        int_rescale=( da.rint( min_val-(dim_rescale*(max_val-min_val)/(new_max-new_min)) ) )
-        img_aux=int_rescale.astype(ref_dtype).compute()
+        dim_rescale=da.map_overlap(rescale,float_half,depth=border_overlap,boundary="reflect",**rescale_args)
+        img_aux=(da.rint(dim_rescale).astype(ref_dtype)).compute()
+        #TODO: check why all the lines below corrupt the image intensity.
+        #img_aux_persist=dim_rescale.astype(ref_dtype).persist()
+        #img_aux=img_aux_persist.compute()
+        #level_max=np.max(img_aux)
+        #level_min=np.min(img_aux)
+        #int_rescale_factor=(max_val-min_val)/(level_max-level_min)
+        #img_aux=(da.rint(min_val-img_aux_persist*int_rescale_factor).astype(ref_dtype) ).compute()
         yield img_aux
 
 
@@ -202,7 +209,6 @@ def extract_sublevels_from_tiff(path,ch,levs):
         for l in range(1,levs):
             yield tif.series[0].levels[l].pages[ch].asarray()
 
-
 def write_pyramid(src_img_path,
                   tasks_table,
                     outdir,
@@ -210,7 +216,8 @@ def write_pyramid(src_img_path,
                     sub_lvls_dims,
                     file_name,
                     src_data_type,
-                    calc_lvls=True
+                    is_src_pyramid=False,
+                    save_ram=False
                     ):
 
     outdir.mkdir(parents=True, exist_ok=True)
@@ -231,7 +238,11 @@ def write_pyramid(src_img_path,
                 count+=1
             else:
                 first_layer=tifff.imread(src_img_path,series=0,level=0,key=int(channel.ind))
-                pyramid_action="extract"
+
+                if (save_ram or not is_src_pyramid):
+                    pyramid_action="calculate"
+                else:
+                    pyramid_action="extract"
             
             tif.write(
                     first_layer,
@@ -241,8 +252,11 @@ def write_pyramid(src_img_path,
                     compression="lzw"
                         )
             
-            if ( pyramid_action=="calculate" or calc_lvls ):
-                pyramid=pyramid_fast(first_layer,sub_levels,sub_lvls_dims)
+            if pyramid_action=="calculate":
+                if save_ram:
+                    pyramid=pyramid_save_ram(first_layer,sub_levels)
+                else:
+                    pyramid=pyramidal_levels(first_layer,sub_levels,sub_lvls_dims)
 
             elif pyramid_action=="extract":
                 pyramid=extract_sublevels_from_tiff(src_img_path,int(channel.ind),levels)
@@ -277,7 +291,7 @@ def main(version):
         levels=args.pyramid_levels
 
     # 3) Read/Create markers table and update it to include the information of the processing tasks
-    if args.tspc_background_protocol:
+    if args.comet_metadata:
         registration_marker="DAPI"
         meta_table=meta_from_file(in_path,registration_marker)
         markers = process_markers( assign_background(meta_table,rmv_ref=True,ref_marker=registration_marker) )
@@ -297,10 +311,8 @@ def main(version):
             print(f"\n(Task_{tasks}): background subtraction, Channel {channel.marker_name} (Background {channel.background})")
             tasks+=1
 
-    #Write pyramidal file
-    out_file_name=f"{(in_path.stem).split(".ome")[0]}_backsub.ome.tif"
-
-    
+    #5) Calculate subtractions and write output file
+    out_file_name=f'{ (in_path.stem).split(".ome")[0] }_backsub.ome.tif'
     logger.info(f"\nTASKS PROGRESS" )
 
     print(f"\nCommencing writing of pyramidal ome.tif file into {out_path / out_file_name}")
@@ -314,10 +326,11 @@ def main(version):
                     src_props["sub_levels_dims"],
                     out_file_name,
                     src_props["data_type"],
-                    calc_lvls=(not src_props["pyramid"])
+                    is_src_pyramid=src_props["pyramid"],
+                    save_ram=args.save_ram
                     )
     
-    #Write metadata in OME format into the pyramidal file
+    #6) Write metadata in OME format into the pyramidal file
     channel_names=markers_updated["marker_name"].tolist()
     ome_xml=ome_writer.create_ome(channel_names,src_props,version)
     tifff.tiffcomment(pyramid_abs_path, ome_xml.encode("utf-8"))

@@ -37,8 +37,8 @@ def get_args():
                         """
                         )
     
-    input_markers_table.add_argument("-tspc-comet",
-                        "--tspc_background_protocol",
+    input_markers_table.add_argument("-comet",
+                        "--comet_metadata",
                         action='store_true',
                         help=argparse.SUPPRESS
                         )
@@ -67,17 +67,14 @@ def get_args():
                         """
                         )
     
-    """
-    TODO: work on the save_ram feature,specifically match dimensions of pyramidal levels of src_image
     inputs.add_argument('-sr',
                     '--save_ram',
                     action='store_true',
-                    help=saves about half of RAM by 
-                            constraining the calculation of the pyramid
-                            to float32 data type.
-                            
-                    )
-    """
+                    help="""RAM usage is cut in half when using this flag.  
+                    Notice that the dimensions of the reduced resolution levels (sub-levels) of 
+                    the output pyramidal image will slightly differ when using and not using this argument.                    
+                    """
+                        )
     #VERSION CONTROL
     inputs.add_argument("--version", 
                         action="version", 
