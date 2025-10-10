@@ -302,6 +302,7 @@ def main(version):
     markers_updated=markers.loc[ markers.keep]
     #4) Write updated markers.csv without appended columns.  This file contains the markers information of the final image stack
     markers_preview = markers_updated.drop(columns=['keep','ind','processed','factor','bg_idx'])
+    markers_preview["channel_number"] = np.arange(1, len(markers_preview)+1)
     markers_preview.to_csv(args.markerout, index=False)
 
     logger.info("\nTASKS PREVIEW:\n{}",markers_updated)
