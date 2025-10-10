@@ -13,7 +13,17 @@ Marker<sub>*corrected*</sub> = Marker<sub>*raw*</sub> - Background / Exposure<su
 
 ## Usage 
 
-The `markers.csv` file which gives details about the channels needs to contain the following columns: "marker_name", "background" and "exposure". An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtraction/blob/main/example/markers.csv) file is given. The "marker_name" column should indicate the marker for the acquired channel and all values should be unique. The "background" column should indicate the marker name of the channel which needs to be subtracted. This value must match the "marker_name" value of the background channel. The "exposure" column should contain the exposure time used for channel acquisition, and the measure unit should be consistent across the column. Exposure time is used for scaling the value of the background to be comparable to the processed channel. The "remove" column should contain logical `TRUE` values for channels which should be exluded in the output image.
+The `markers.csv` file which gives details about the channels needs to contain the following columns: "marker_name", "background" and "exposure". An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtraction/blob/main/example/markers.csv) file is given. The "marker_name" column should indicate the marker for the acquired channel and all values should be unique. The "background" column should indicate the marker name of the channel which needs to be subtracted. This value must match the "marker_name" value of the background channel. The "exposure" column should contain the exposure time used for channel acquisition, and the measure unit should be consistent across the column. Exposure time is used for scaling the value of the background to be comparable to the processed channel. The "remove" column should contain logical `TRUE` values for channels which should be excluded in the output image.
+
+### Version v0.5.10:
+This version, which is a rework of v0.4.1, introduces the following features:
+* File-size of output image is reduced by using lossless compression ("LZW").
+* Facilitates container creation by prescinding from PALOM and opencv libraries.
+* Introduces the hidden argument, `-comet`, which extracts the metadata on-the-fly for Lunaphore Comet images.  When using this argument, the `markers.csv` file is not required.
+* Two RAM-profiles: (1) default mode, uses moderate RAM. (2) Uses approximately half-of the RAM of profile 1 at the cost of a slight loss in precision of the calculation of the downsized dimensions of the pyramidal output image.  This means the dimensions of the pyramidal level will differ between profile 1 and 2, the high-resolution level is not affected by this.
+* Organizes the tool in five scripts: (1) CLI, (2) ome-schema structure, (3) ome-schema writer, (4) background substraction and writing of output image and (5) extraction of metadata from Lunaphore Comet images.
+* Logger has been re-designed.
+
 
 ### Versions v0.4.1 and newer:
 The script has been rewritten to perform channel subtraction in a RAM-efficient manner - updating is highly recommended. If the output file is much bigger than expected, adjust the `--tile-size` parameter to a smaller value (e.g `512`). Changing the `--chunk-size` parameter may affect performance (lower values increase execution time, higher values increase RAM usage).
@@ -25,16 +35,24 @@ The `markers.csv` file which gives details about the channels needs to contain t
 
 ### CLI
 
-The script requires four inputs: 
-* the path to the starting image given with `-r` or `--root`
+Minimal required arguments:
+
+* the path to the input image given with `-r` or `--root`
 * the path to the output image given with `-o` or `--output`
 * the path to the `markers.csv` file given with `-m` or `--markers`
 * the path to the markers output file given with `-mo` or `--markerout`
-Optional inputs:
-* `--pixel-size` to specify the pixel size of the input image (default: `1.0`), if not specified, the pixel size will be read from the metadata of the input image.
-* `--version` to print version and exit (added in v0.3.4)
-* `--tile-size` to specify the tile size for the pyramidal output image (default: `1024`) (added in v0.3.4)
-* `--chunk-size` to specify chunk size for delayed calculation execution (default: `5000`) - lower values result in higher execution time, higher values in higher RAM usage
+
+Optional arguments:
+
+* `-mpp` or `--pixel-size` microns per pixel, i.e. pixel size of the input image in microns. If not specified the script will attempt 
+to extract the pixel size and its units from the metadata, if failed, it will assign a pixel size of 1 with "pixel" as units.
+* `-pl` or `--pyramid_levels` total number of pyramidal levels of the output image, this number should also include the high-resolution level.  Default value is 8, this argument will be only implemented if the input image is not pyramidal. If input image is pyramidal, the output image will have the same levels and this argument will be ignored.
+* `-sr` or `--save_ram` using this argument will provide the low RAM usage of version 0.4.1.
+* `--version` to print version.
+
+Hidden argument !!!:
+
+* `-comet` Flag to obtain the markers table on the fly for images acquired with the reference background acquisition implemented in the Lunaphore Comet at the TSPC (https://www.tspc-hd.com/). When this flag is used, the argument `-m`/`--markers` is ignored since the markers information will be extracted from the metadata of the input image.
 
 
 ### Output
