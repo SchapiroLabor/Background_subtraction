@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #standard libraries
 import pandas as pd
 import numpy as np
@@ -125,7 +127,7 @@ def process_markers(markers):
     return markers
 
 
-def extract_img_props(img_path,pixel_size=None):
+def extract_img_props(img_path,downscale_factor,tile_size,pixel_size=None):
 
     #Extract data_type, pyramidal specs, height, width
     with tifff.TiffFile(img_path) as tif:
@@ -141,6 +143,11 @@ def extract_img_props(img_path,pixel_size=None):
                              ]
         else:
             subres_dims=None
+
+    if downscale_factor <= 1:
+        raise ValueError("downscale_factor must be greater than 1")
+    max_dim = max(height,width)
+    extracted_levels = int(np.floor(np.log(max_dim / tile_size) / np.log(downscale_factor)) + 1)
         
     #Try to extract pixel size from ome-xml
     if pixel_size is None:
@@ -164,6 +171,7 @@ def extract_img_props(img_path,pixel_size=None):
                "data_type":data_type,
                "pyramid":is_pyramid,
                "levels":pyr_levels,
+               "extracted_levels": max(extracted_levels, 1),
                "sub_levels_dims":subres_dims,
                "size_x":width,
                "size_y":height ,
@@ -204,30 +212,32 @@ def subtract_channels(src_img_path,
     print(resources.results[0],"([sec],[MB],[% CPU usage])")
     return result
 
-def extract_sublevels_from_tiff(path,ch,levs):
+def extract_sublevels_from_tiff(path,ch,levels):
     with tifff.TiffFile(path) as tif:
-        for l in range(1,levs):
+        for l in range(1,levels):
             yield tif.series[0].levels[l].pages[ch].asarray()
 
 def write_pyramid(src_img_path,
                   tasks_table,
-                    outdir,
+                    out_file,
                     levels,
                     sub_lvls_dims,
-                    file_name,
                     src_data_type,
+                    pyramid_tile_shape,
+                    compression,
                     is_src_pyramid=False,
                     save_ram=False
                     ):
 
-    outdir.mkdir(parents=True, exist_ok=True)
-    out_file_path=outdir / file_name
     sub_levels=levels-1
 
-    total_operations=tasks_table['processed'].values.sum()#Count True values
+    total_operations=tasks_table['processed'].values.sum() #Count True values
     count=1
 
-    with tifff.TiffWriter(out_file_path,bigtiff=True) as tif:
+    if compression == 'none':
+        compression=None
+
+    with tifff.TiffWriter(out_file,bigtiff=True) as tif:
         #write first the original resolution image,i.e. first layer
         for _,channel in tasks_table.iterrows():
             if channel.processed:
@@ -245,12 +255,12 @@ def write_pyramid(src_img_path,
                     pyramid_action="extract"
             
             tif.write(
-                    first_layer,
-                    subifds=sub_levels,
-                    tile=(256, 256),
-                    photometric='minisblack',
-                    compression="lzw"
-                        )
+                first_layer,
+                subifds=sub_levels,
+                tile=pyramid_tile_shape,
+                photometric='minisblack',
+                compression=compression
+            )
             
             if pyramid_action=="calculate":
                 if save_ram:
@@ -266,12 +276,12 @@ def write_pyramid(src_img_path,
                     tif.write(
                         sub_layer,
                         subfiletype=1,
-                        tile=(256, 256),
+                        tile=pyramid_tile_shape,
                         photometric='minisblack',
-                        compression="lzw"#lzw works better when saving channel-by-channel and jpeg 2000 when saving the whole stack at once
-                        )
+                        compression=compression#lzw works better when saving channel-by-channel and jpeg 2000 when saving the whole stack at once
+                    )
                 
-    return out_file_path
+    return out_file
 
 @memocron
 def main(version):
@@ -283,12 +293,18 @@ def main(version):
     assert out_path != in_path
 
     # 1) Extract image properties
-    src_props = extract_img_props(in_path, args.pixel_size,)
+    if args.tile_size % 16 != 0:
+        raise ValueError("tile_size has to be a multiple of 16")
+    tile_shape = (args.tile_size, args.tile_size)
+    src_props = extract_img_props(in_path,
+                                  args.downscale_factor,
+                                  args.tile_size,
+                                  args.pixel_size)
     # 2) Modify pyramid_levels if required
     if src_props["pyramid"]:
         levels=src_props["levels"]
     else:
-        levels=args.pyramid_levels
+        levels=src_props["extracted_levels"]
 
     # 3) Read/Create markers table and update it to include the information of the processing tasks
     if args.comet_metadata:
@@ -313,20 +329,25 @@ def main(version):
             tasks+=1
 
     #5) Calculate subtractions and write output file
-    out_file_name=f'{ (in_path.stem).split(".ome")[0] }_backsub.ome.tif'
+    out_file=args.output
+
     logger.info(f"\nTASKS PROGRESS" )
 
-    print(f"\nCommencing writing of pyramidal ome.tif file into {out_path / out_file_name}")
+    print(f"\nCommencing writing of pyramidal ome.tif file into {out_path}\n")
     print(f"\nCommencing subtraction tasks\n")
-
+    if args.compression=='none':
+        compression=None
+    else:
+        compression=args.compression
     pyramid_abs_path=write_pyramid(
                     in_path,
                     markers_updated,
-                    out_path,
+                    out_file,
                     levels,
                     src_props["sub_levels_dims"],
-                    out_file_name,
                     src_props["data_type"],
+                    tile_shape,
+                    compression,
                     is_src_pyramid=src_props["pyramid"],
                     save_ram=args.save_ram
                     )
@@ -335,21 +356,10 @@ def main(version):
     channel_names=markers_updated["marker_name"].tolist()
     ome_xml=ome_writer.create_ome(channel_names,src_props,version)
     tifff.tiffcomment(pyramid_abs_path, ome_xml.encode("utf-8"))
-    
-
 
     logger.info(f'\nSCRIPT FINISHED PROCESSING TASKS ')
-    print(f'\nPyramidal image with {levels} levels was successfully written ')
-    
-
-
+    print(f'\nPyramidal image with {levels} levels was successfully written{'' if compression is None else f' with {compression} compression'}.')
 
 if __name__ == '__main__':
-    _version = 'v0.5.0'
+    _version = 'v0.5.0dev'
     main(_version)
-
-    
-
-
-
-

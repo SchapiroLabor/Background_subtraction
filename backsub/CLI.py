@@ -54,19 +54,42 @@ def get_args():
                         help="pixel size in microns,i.e. microns per pixel(mpp)"
                         )
     
-    inputs.add_argument("-pl",
-                        "--pyramid_levels", 
-                        dest="pyramid_levels", 
+    # inputs.add_argument("-pl",
+    #                     "--pyramid_levels", 
+    #                     dest="pyramid_levels", 
+    #                     required=False, 
+    #                     type=int, 
+    #                     default=8, 
+    #                     help="""Total number of pyramid levels.
+    #                     This value will be only used if the input image is NOT pyramidal.
+    #                     If input image is pyramidal, the number of levels in the output image 
+    #                     will be the same as in the input.
+    #                     """
+    #                     )
+
+    inputs.add_argument("-ts",
+                        "--tile_size", 
+                        dest="tile_size", 
                         required=False, 
                         type=int, 
-                        default=8, 
-                        help="""Total number of pyramid levels.
-                        This value will be only used if the input image is NOT pyramidal.
-                        If input image is pyramidal, the number of levels in the output image 
-                        will be the same as in the input.
+                        default=256, 
+                        help="""Tile size for image pyramid creation. Has to be a multiple of 16.
                         """
                         )
-    
+
+    inputs.add_argument("-dsf",
+                        "--downscale_factor", 
+                        dest="downscale_factor", 
+                        required=False, 
+                        type=int, 
+                        default=2, 
+                        help="""Downscale factor for the image pyramid.
+                        This value will be only used if the input image is NOT pyramidal.
+                        If input image is pyramidal, the number of levels in the output image 
+                        will be the same as in the input so the downscale factor is not applied.
+                        """
+                        )
+
     inputs.add_argument('-sr',
                     '--save_ram',
                     action='store_true',
@@ -75,10 +98,22 @@ def get_args():
                     the output pyramidal image will slightly differ when using and not using this argument.                    
                     """
                         )
+
+    inputs.add_argument(
+                    '--compression',
+                    dest='compression',
+                    required=False,
+                    type=str,
+                    default='LZW',
+                    help="""If set, the output pyramidal image will be compressed using the specified
+                    compression method. Set to "none" for no compression. Default is LZW.
+                    """
+                    )
+
     #VERSION CONTROL
     inputs.add_argument("--version", 
                         action="version", 
-                        version="v0.5.0"
+                        version="v0.5.0dev"
                         )
     
     #OUTPUTS

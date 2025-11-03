@@ -14,17 +14,17 @@ def create_ome(conformed_markers,info,software_version):
     software=f'backsub {software_version}'
     no_of_channels = len(conformed_markers)
     tile_info_dict={
-            "tile": no_of_channels *[1],
-            "name":conformed_markers ,
-            "type": no_of_channels  *[ info["data_type"] ],
-            "size_x":no_of_channels *[ info["size_x"] ] ,
-           "size_y":no_of_channels *[info["size_y"]],
-           "physical_size_x": no_of_channels *[info["pixel_size"]],
-           "physical_size_x_unit": no_of_channels *[info["pixel_size_unit"]],
-           "physical_size_y": no_of_channels *[info["pixel_size"]],
-           "physical_size_y_unit": no_of_channels *[info["pixel_size_unit"]],
-           "significant_bits": no_of_channels *["16"]
-           }
+        "tile": no_of_channels *[1],
+        "name":conformed_markers ,
+        "type": no_of_channels  *[ info["data_type"] ],
+        "size_x":no_of_channels *[ info["size_x"] ] ,
+        "size_y":no_of_channels *[info["size_y"]],
+        "physical_size_x": no_of_channels *[info["pixel_size"]],
+        "physical_size_x_unit": no_of_channels *[info["pixel_size_unit"]],
+        "physical_size_y": no_of_channels *[info["pixel_size"]],
+        "physical_size_y_unit": no_of_channels *[info["pixel_size_unit"]],
+        "significant_bits": no_of_channels *["16"]
+    }
     tile_info=pd.DataFrame(tile_info_dict)
     
     grouped_tiles = tile_info.groupby(['tile'])
