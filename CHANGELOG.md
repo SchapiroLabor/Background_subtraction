@@ -22,8 +22,6 @@ Rework of Backsub to not have Palom as a dependency reducing the environment siz
 - Palom and OpenCV as dependencies
 - old scripts, version history should be checked instead.
 
-
-
 ## v0.4.1 - [2023.11.21]
 
 The script has been rewritten to perform channel subtraction in a RAM-efficient manner - updating is highly recommended. If the output file is much bigger than expected, adjust the `--tile-size` parameter to a smaller value (e.g `512`). Changing the `--chunk-size` parameter may affect performance (lower values increase execution time, higher values increase RAM usage).
