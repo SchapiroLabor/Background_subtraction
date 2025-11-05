@@ -20,6 +20,7 @@ Rework of Backsub to not have Palom as a dependency reducing the environment siz
 
 ### `Removed`
 - Palom and OpenCV as dependencies
+- old scripts, version history should be checked instead.
 
 
 
