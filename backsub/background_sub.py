@@ -105,6 +105,13 @@ def process_markers(markers):
 
     markers.insert(markers.shape[1], "processed", ~ markers.background.isnull())
 
+    missing_bgs = [
+        bg for bg in markers['background'].dropna().unique()
+        if bg not in markers['marker_name'].values
+    ]
+    if missing_bgs:
+        raise ValueError(f"Background markers not found in marker_name column: {missing_bgs}")
+
     scaling_factor=np.full(markers.shape[0],np.nan)
     background_idx=np.full(markers.shape[0],np.nan)
 
