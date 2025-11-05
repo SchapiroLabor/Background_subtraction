@@ -112,6 +112,9 @@ def process_markers(markers):
     if missing_bgs:
         raise ValueError(f"Background markers not found in marker_name column: {missing_bgs}")
 
+    if markers['background'].dropna().empty:
+        print("\nWarning: No background markers specified in the 'background' column of the markers CSV file. No background subtraction was performed on the output file.\n")
+
     scaling_factor=np.full(markers.shape[0],np.nan)
     background_idx=np.full(markers.shape[0],np.nan)
 
