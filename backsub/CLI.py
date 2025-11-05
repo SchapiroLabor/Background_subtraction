@@ -94,7 +94,7 @@ def get_args(_version):
                         dest='compression',
                         required=False,
                         type=str,
-                        default='LZW',
+                        default='lzw',
                         choices=['lzw', 'none', 'deflate', 'zlib'],
                         help="""If set, the output pyramidal image will be compressed using the specified
                         compression method. Set to "none" for no compression. Default is LZW. An alternative is zlib.

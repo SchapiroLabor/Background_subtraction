@@ -80,7 +80,7 @@ def CHANN_array(no_of_channels, inputs):
         Channel(
             id=f"Channel:{str(ch)}", # 'Channel:{y}:{x}:{marker_name}'.format(x=ch,y=100+int( inputs['tile'][ch] ) ,marker_name=inputs['marker'][ch] )
             name=inputs["name"][ch],
-            color=(255,255,255)
+            samples_per_pixel=1
             )
         for ch in range(0,no_of_channels)
         ]
@@ -99,7 +99,7 @@ def PIXELS_array(chann_block, plane_block, tiff_block, inputs):
     Returns:
         Pixels: Pixels object.
     """
-
+    print(f'\nMETADATA {inputs['type'][0]} \n')
     PIXELS = Pixels(
         id=f"Pixels:{inputs['tile'][0]}",
         dimension_order='XYCZT',

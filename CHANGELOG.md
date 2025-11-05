@@ -15,6 +15,7 @@ Rework of Backsub to not have Palom as a dependency reducing the environment siz
 - logger has been re-designed.
 - restructured README
 - `tile-size` parameter now defaults to 256 instead of 1024
+- support for different data types - primarily np.uint8 in addition to np.uint16
 
 ### `Fixed`
 - output image file-size is reduced by applying lossless compression ("LZW" by default)

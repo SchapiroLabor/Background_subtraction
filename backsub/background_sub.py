@@ -204,7 +204,11 @@ def subtract_channels(src_img_path,
     background_as_zarr =zarr.open( tifff.imread( src_img_path, aszarr=True, series=0, level=0,key=int(background_index) ) )
     signal=da.from_zarr(signal_as_zarr, chunks=ref_chunksize )
     background=da.from_zarr(background_as_zarr, chunks=ref_chunksize)
-    subtraction=da.clip(signal-factor*background,0,65535).astype(ref_dtype)
+    if np.issubdtype(ref_dtype, np.integer):
+        info = np.iinfo(ref_dtype)
+        subtraction=da.clip(signal-factor*background, info.min, info.max).astype(ref_dtype)
+    else: # float32/64, no upper clipping
+        subtraction=da.clip(signal-factor*background, 0, None).astype(ref_dtype)
     with ResourceProfiler(dt=0.25) as resources:
         with ProgressBar():
             result=subtraction.compute()
@@ -243,7 +247,7 @@ def write_pyramid(src_img_path,
             if channel.processed:
                 operation_count=f"({count}/{total_operations})"
                 print(f"\n {operation_count} Calculating subtraction of background {channel.background} from {channel.marker_name} signal:")
-                first_layer=subtract_channels(src_img_path, channel.ind, channel.bg_idx, channel.factor, (4096,4096), src_data_type,operation_count)
+                first_layer=subtract_channels(src_img_path, channel.ind, channel.bg_idx, channel.factor, (4096,4096), src_data_type, operation_count)
                 pyramid_action="calculate"
                 count+=1
             else:
@@ -280,7 +284,8 @@ def write_pyramid(src_img_path,
                         photometric='minisblack',
                         compression=compression
                             # lzw works better when saving channel-by-channel
-                            # jpeg 2000 when saving the whole stack at once. zlib is an alternative that's slower for writing, but gives better compression ratio
+                            # jpeg2000 works better saving the whole stack at once (not done here)
+                            # zlib is an alternative that's slower when writing, but gives better compression ratio
                     )
                 
     return out_file
@@ -291,13 +296,17 @@ def main(version):
     in_path = args.input
     out_path = args.output
 
-    # 0) Validate input_path is not the same as output_path,pixel data is read into RAM lazily, cannot overwrite input file
+    # 0) Validate input_path is not the same as output_path, pixel data is read into RAM lazily, cannot overwrite input file
     assert out_path != in_path
 
-    # 1) Extract image properties
     if args.tile_size % 16 != 0:
         raise ValueError("tile_size has to be a multiple of 16")
+    if args.compression not in ['none','lzw','deflate','zlib']:
+        raise ValueError("Compression has to be one of the following: 'none','lzw','deflate','zlib'")
+
     tile_shape = (args.tile_size, args.tile_size)
+
+    # 1) Extract image properties
     src_props = extract_img_props(in_path,
                                   args.downscale_factor,
                                   args.tile_size,
