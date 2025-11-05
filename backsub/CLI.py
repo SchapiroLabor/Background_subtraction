@@ -3,7 +3,7 @@ import pathlib
 from argparse import ArgumentParser as AP
 
 #---CLI-BLOCK---#
-def get_args():
+def get_args(_version):
     # Script description
     description="""
                 Subtracts background from an image (signal) 
@@ -19,26 +19,30 @@ def get_args():
     inputs = parser.add_argument_group(title="INPUTS")
     input_markers_table = inputs.add_mutually_exclusive_group(required=True)
     
-    inputs.add_argument("-r", 
-                        "--root", 
-                        dest="root", 
+    inputs.add_argument("-r", ## deprecation warning can be added later
+                        "--root", ## deprecation warning can be added later
+                        '-in',
+                        "--input",
+                        dest="input", 
                         action="store",
                         type=pathlib.Path,
                         required=True, 
-                        help="File path to root image file.")
+                        help="File path to input image file.")
     
     input_markers_table.add_argument(
+                        "-m",
                         "--markers", 
                         dest="markers", 
                         action="store",
                         type=pathlib.Path,
+                        required=True,
                         help="""File path to the markers.csv file containing the list of marker names
-                        and its respective background channels.
+                        and their respective background channels.
                         """
                         )
     
     input_markers_table.add_argument("-comet",
-                        "--comet_metadata",
+                        "--comet-metadata",
                         action='store_true',
                         help=argparse.SUPPRESS
                         )
@@ -51,24 +55,11 @@ def get_args():
                         type=float, 
                         default = None, 
                         action = "store",
-                        help="pixel size in microns,i.e. microns per pixel(mpp)"
+                        help="pixel size in microns, i.e. microns per pixel(mpp)"
                         )
-    
-    # inputs.add_argument("-pl",
-    #                     "--pyramid_levels", 
-    #                     dest="pyramid_levels", 
-    #                     required=False, 
-    #                     type=int, 
-    #                     default=8, 
-    #                     help="""Total number of pyramid levels.
-    #                     This value will be only used if the input image is NOT pyramidal.
-    #                     If input image is pyramidal, the number of levels in the output image 
-    #                     will be the same as in the input.
-    #                     """
-    #                     )
 
     inputs.add_argument("-ts",
-                        "--tile_size", 
+                        "--tile-size", 
                         dest="tile_size", 
                         required=False, 
                         type=int, 
@@ -78,7 +69,7 @@ def get_args():
                         )
 
     inputs.add_argument("-dsf",
-                        "--downscale_factor", 
+                        "--downscale-factor", 
                         dest="downscale_factor", 
                         required=False, 
                         type=int, 
@@ -91,29 +82,31 @@ def get_args():
                         )
 
     inputs.add_argument('-sr',
-                    '--save_ram',
-                    action='store_true',
-                    help="""RAM usage is cut in half when using this flag.  
-                    Notice that the dimensions of the reduced resolution levels (sub-levels) of 
-                    the output pyramidal image will slightly differ when using and not using this argument.                    
-                    """
+                        '--save-ram',
+                        action='store_true',
+                        help="""RAM usage is cut in half when using this flag.  
+                        Notice that the dimensions of the reduced resolution levels (sub-levels) of 
+                        the output pyramidal image will slightly differ whether or not using this argument.                    
+                        """
                         )
 
-    inputs.add_argument(
-                    '--compression',
-                    dest='compression',
-                    required=False,
-                    type=str,
-                    default='LZW',
-                    help="""If set, the output pyramidal image will be compressed using the specified
-                    compression method. Set to "none" for no compression. Default is LZW.
-                    """
-                    )
+    inputs.add_argument('-comp',
+                        '--compression',
+                        dest='compression',
+                        required=False,
+                        type=str,
+                        default='LZW',
+                        choices=['lzw', 'none', 'deflate', 'zlib'],
+                        help="""If set, the output pyramidal image will be compressed using the specified
+                        compression method. Set to "none" for no compression. Default is LZW. An alternative is zlib.
+                        """
+                        )
 
     #VERSION CONTROL
-    inputs.add_argument("--version", 
+    inputs.add_argument("-v",
+                        "--version", 
                         action="version", 
-                        version="v0.5.0dev"
+                        version=_version
                         )
     
     #OUTPUTS
@@ -125,7 +118,7 @@ def get_args():
                          action="store",
                          type=pathlib.Path,
                          required=True, 
-                         help="Path to output file"
+                         help="File path where the output pyramidal OME-TIFF will be saved."
                          )
     
     outputs.add_argument("-mo", 
@@ -134,7 +127,7 @@ def get_args():
                          action="store",
                          type=pathlib.Path,
                          required=True, 
-                         help="Path to the output .csv marker file"
+                         help="Path to the output .csv marker file matching the channels in the output image."
                          )
 
     arg = parser.parse_args()

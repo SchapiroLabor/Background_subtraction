@@ -190,13 +190,13 @@ def subtract_channels(src_img_path,
                       task_no
                       ):
     """
-    This function executes the background substraction using generators, each element of the generator
+    This function executes the background subtraction using generators, each element of the generator
     is a tuple with 3 values, such that:
 
     tuple=(img_with_backsub[array],calculate or extract pyramid [str],pyramid_from_index[int])
 
     The second entry of the tuple indicates in the writing process if the pyramid should be calculated using 
-    pyramid_gaussian from scikit image.  If extract, the index given in the third entry will fetch all the pyramid
+    pyramid_gaussian from scikit image. If extract, the index given in the third entry will fetch all the pyramid
     levels from the original image stack(src_img_path).
     """
     factor=np.float32(factor)#limiting precision to float32 saves memory
@@ -242,7 +242,7 @@ def write_pyramid(src_img_path,
         for _,channel in tasks_table.iterrows():
             if channel.processed:
                 operation_count=f"({count}/{total_operations})"
-                print(f"\n {operation_count} Calculating subtraction of background {channel.background}  from {channel.marker_name} signal:")
+                print(f"\n {operation_count} Calculating subtraction of background {channel.background} from {channel.marker_name} signal:")
                 first_layer=subtract_channels(src_img_path, channel.ind, channel.bg_idx, channel.factor, (4096,4096), src_data_type,operation_count)
                 pyramid_action="calculate"
                 count+=1
@@ -278,15 +278,17 @@ def write_pyramid(src_img_path,
                         subfiletype=1,
                         tile=pyramid_tile_shape,
                         photometric='minisblack',
-                        compression=compression#lzw works better when saving channel-by-channel and jpeg 2000 when saving the whole stack at once
+                        compression=compression
+                            # lzw works better when saving channel-by-channel
+                            # jpeg 2000 when saving the whole stack at once. zlib is an alternative that's slower for writing, but gives better compression ratio
                     )
                 
     return out_file
 
 @memocron
 def main(version):
-    args=CLI.get_args()
-    in_path = args.root
+    args=CLI.get_args(_version)
+    in_path = args.input
     out_path = args.output
 
     # 0) Validate input_path is not the same as output_path,pixel data is read into RAM lazily, cannot overwrite input file
@@ -316,7 +318,7 @@ def main(version):
         markers = process_markers(pd.read_csv(args.markers))
 
     markers_updated=markers.loc[ markers.keep]
-    #4) Write updated markers.csv without appended columns.  This file contains the markers information of the final image stack
+    #4) Write updated markers.csv without appended columns. This file contains the markers information of the final image stack
     markers_preview = markers_updated.drop(columns=['keep','ind','processed','factor','bg_idx'])
     markers_preview["channel_number"] = np.arange(1, len(markers_preview)+1)
     markers_preview.to_csv(args.markerout, index=False)
