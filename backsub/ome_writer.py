@@ -1,7 +1,7 @@
 import ome_schema as schema
 import pandas as pd
 
-def create_ome(conformed_markers,info,software_version):
+def create_ome(conformed_markers, info, software_version):
     """
     This function creates an OME-XML file from a pandas dataframe containing the metadata of the tiles.
     Args:

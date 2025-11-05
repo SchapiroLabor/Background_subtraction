@@ -142,7 +142,7 @@ def IMAGE_array(pixels_block, imageID):
     return IMAGE
 
 
-def OME_metadata(image_block,software):
+def OME_metadata(image_block, software):
     """
     This function creates an OME object.
     Args:
@@ -151,13 +151,13 @@ def OME_metadata(image_block,software):
         OME: OME object.
     """
     ome = OME()
-    ome.creator = " ".join([software,
-                            ome_types.__name__,
-                        ome_types.__version__,
-                        '/ python version-',
-                        platform.python_version()
-                        ]
-                        )
+    ome.creator = " ".join([
+        software,
+        ome_types.__name__,
+        ome_types.__version__,
+        '/ python version-',
+        platform.python_version()
+    ])
 
     ome.images = image_block
     ome_xml = ome_types.to_xml(ome)
