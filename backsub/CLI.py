@@ -22,7 +22,7 @@ def get_args(_version):
     inputs.add_argument("-r", ## deprecation warning can be added later
                         "--root", ## deprecation warning can be added later
                         '-in',
-                        "--input",
+                        '--input',
                         dest="input", 
                         action="store",
                         type=pathlib.Path,
@@ -35,7 +35,6 @@ def get_args(_version):
                         dest="markers", 
                         action="store",
                         type=pathlib.Path,
-                        required=True,
                         help="""File path to the markers.csv file containing the list of marker names
                         and their respective background channels.
                         """
