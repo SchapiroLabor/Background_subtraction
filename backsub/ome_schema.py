@@ -99,7 +99,6 @@ def PIXELS_array(chann_block, plane_block, tiff_block, inputs):
     Returns:
         Pixels: Pixels object.
     """
-    print(f'\nMETADATA {inputs['type'][0]} \n')
     PIXELS = Pixels(
         id=f"Pixels:{inputs['tile'][0]}",
         dimension_order='XYCZT',

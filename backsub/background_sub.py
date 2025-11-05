@@ -82,13 +82,6 @@ def pyramid_save_ram(img_arr,sub_levels):
         float_half=img_chunk.astype("float32")
         dim_rescale=da.map_overlap(rescale,float_half,depth=border_overlap,boundary="reflect",**rescale_args)
         img_aux=(da.rint(dim_rescale).astype(ref_dtype)).compute()
-        #TODO: check why all the lines below corrupt the image intensity.
-        #img_aux_persist=dim_rescale.astype(ref_dtype).persist()
-        #img_aux=img_aux_persist.compute()
-        #level_max=np.max(img_aux)
-        #level_min=np.min(img_aux)
-        #int_rescale_factor=(max_val-min_val)/(level_max-level_min)
-        #img_aux=(da.rint(min_val-img_aux_persist*int_rescale_factor).astype(ref_dtype) ).compute()
         yield img_aux
 
 
@@ -321,6 +314,7 @@ def main(version):
                                   args.downscale_factor,
                                   args.tile_size,
                                   args.pixel_size)
+
     # 2) Modify pyramid_levels if required
     if src_props["pyramid"]:
         levels=src_props["levels"]
@@ -337,6 +331,7 @@ def main(version):
         markers = process_markers(pd.read_csv(args.markers))
 
     markers_updated=markers.loc[ markers.keep]
+
     #4) Write updated markers.csv without appended columns. This file contains the markers information of the final image stack
     markers_preview = markers_updated.drop(columns=['keep','ind','processed','factor','bg_idx'])
     markers_preview["channel_number"] = np.arange(1, len(markers_preview)+1)
@@ -382,5 +377,5 @@ def main(version):
     print(f'\nPyramidal image with {levels} levels was successfully written{'' if compression is None else f' with {compression} compression'}.')
 
 if __name__ == '__main__':
-    _version = 'v0.5.0dev'
+    _version = 'v0.5.0'
     main(_version)
