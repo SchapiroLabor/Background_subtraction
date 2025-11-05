@@ -17,7 +17,7 @@ def get_args():
 
     # INPUT GROUPS
     inputs = parser.add_argument_group(title="INPUTS")
-    input_markers_table = parser.add_mutually_exclusive_group(required=True)
+    input_markers_table = inputs.add_mutually_exclusive_group(required=True)
     
     inputs.add_argument("-r", 
                         "--root", 
@@ -27,7 +27,7 @@ def get_args():
                         required=True, 
                         help="File path to root image file.")
     
-    input_markers_table.add_argument("-m", 
+    input_markers_table.add_argument(
                         "--markers", 
                         dest="markers", 
                         action="store",
