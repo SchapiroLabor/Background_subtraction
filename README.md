@@ -1,83 +1,160 @@
-# Background_subtraction
+# Backsub - pixel-by-pixel channel subtraction tool for multiplexed immunofluorescence data
 
-Pixel-by-pixel channel subtraction scaled by exposure times, primarily developed for images produced by the COMET platform and to work within the MCMICRO pipeline. Main usecase is autuofluorescence subtraction for multichannel and multicycle images for visualization of images from tissues with high autofluroescence (FFPE), improved segmentation, and quantification (if the previous two usecases aren't necessary, downstream subtraction of autofluorescent signal is encouraged as the script is memory inefficent).
+Backsub performs pixel-by-pixel background subtraction between marker and background channels scaled by their respective exposure times. The outputs are saved as pyramidal OME-TIFF files. It was originally developed for data produced by the Lunaphore COMET platform and is fully compatible with the [MCMICRO](https://mcmicro.org) pipeline.
+
+
+Example of pixel-wise autofluorescence subtraction with Backsub:
+<p align="left">
+  <img src="example/application_example.png" alt="Background subtraction example" width="750">
+</p>
 
 ## Introduction
 
-If there are background (autofluorescence) channels present in a `.tif` image, background subtraction should be performed so as not to skew the quantification counts of markers. The most precise way of subtracting background would be on a pixel-to-pixel basis. An alternative would be on a cell basis by just subtracting the background measurements from the marker measurements for each cell, however, for visual inspection of images, as well as future use of images as figures in published work, it is preferred to use this.
+In multiplexed immunofluorescence images, autofluorescence and background signals can cause improper cell segmentation, and can affect downstream intensity quantification which is why, if possible, they should be subtracted from raw channel intensities. The most precise way of subtracting background would be on a pixel-to-pixel basis. An alternative would be to subtract the background measurements from the marker measurements for each cell after quantification, however, for visual inspection of images, segmentation, and data presentation, it is preferred to use the corrected values.
+
+The primary use case is autofluorescence subtraction for multichannel and multicycle microscopy images to improve:
+* image visualization of tissues with strong autofluorescence
+* segmentation accuracy
+* quantification quality (if the previous two usecases are not necessary, downstream subtraction of autofluorescence signal is encouraged instead)
 
 Background subtraction is performed using the following formula:
 
-Marker<sub>*corrected*</sub> = Marker<sub>*raw*</sub> - Background / Exposure<sub>*Background*</sub> * Exposure<sub>*Marker*</sub>
+$Marker_{corrected} = Marker_{raw} - Background \times \frac{Exposure_{Marker}}{Exposure_{Background}}$
 
+## Installation
 
-## Usage 
+Backsub can be run either in a preconfigured Docker container or in a local conda environment.
 
-The `markers.csv` file which gives details about the channels needs to contain the following columns: "marker_name", "background" and "exposure". An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtraction/blob/main/example/markers.csv) file is given. The "marker_name" column should indicate the marker for the acquired channel and all values should be unique. The "background" column should indicate the marker name of the channel which needs to be subtracted. This value must match the "marker_name" value of the background channel. The "exposure" column should contain the exposure time used for channel acquisition, and the measure unit should be consistent across the column. Exposure time is used for scaling the value of the background to be comparable to the processed channel. The "remove" column should contain logical `TRUE` values for channels which should be excluded in the output image.
+### Option 1: Docker
 
-### Version v0.5.10:
-This version, which is a rework of v0.4.1, introduces the following features:
-* File-size of output image is reduced by using lossless compression ("LZW").
-* Facilitates container creation by prescinding from PALOM and opencv libraries.
-* Introduces the hidden argument, `-comet`, which extracts the metadata on-the-fly for Lunaphore Comet images.  When using this argument, the `markers.csv` file is not required.
-* Two RAM-profiles: (1) default mode, uses moderate RAM. (2) Uses approximately half-of the RAM of profile 1 at the cost of a slight loss in precision of the calculation of the downsized dimensions of the pyramidal output image.  This means the dimensions of the pyramidal level will differ between profile 1 and 2, the high-resolution level is not affected by this.
-* Organizes the tool in five scripts: (1) CLI, (2) ome-schema structure, (3) ome-schema writer, (4) background substraction and writing of output image and (5) extraction of metadata from Lunaphore Comet images.
-* Logger has been re-designed.
-
-
-### Versions v0.4.1 and newer:
-The script has been rewritten to perform channel subtraction in a RAM-efficient manner - updating is highly recommended. If the output file is much bigger than expected, adjust the `--tile-size` parameter to a smaller value (e.g `512`). Changing the `--chunk-size` parameter may affect performance (lower values increase execution time, higher values increase RAM usage).
-
-
-### Versions v0.2.0 and older:
-The `markers.csv` file which gives details about the channels needs to contain the following columns: "Filter", "background" and "exposure". An exemplary [markers_old.csv](https://github.com/SchapiroLabor/Background_subtraction/files/9549686/markers.csv) file is given. The "Filter" column should specify the Filter used when acquiring images. If different stains are aquired with the same filter, the *exact same value* needs to be written (including background) as it is used for determining which background channel should be subtracted. The "background" column should contain logical `TRUE` values for channels which represent autofluorescence. The "exposure" column should contain the exposure time used for channel acquisition, and the measure unit should be consistent across the column. Exposure time is used for scaling the value of the background to be comparable to the processed channel.
-
-
-### CLI
-
-Minimal required arguments:
-
-* the path to the input image given with `-r` or `--root`
-* the path to the output image given with `-o` or `--output`
-* the path to the `markers.csv` file given with `-m` or `--markers`
-* the path to the markers output file given with `-mo` or `--markerout`
-
-Optional arguments:
-
-* `-mpp` or `--pixel-size` microns per pixel, i.e. pixel size of the input image in microns. If not specified the script will attempt 
-to extract the pixel size and its units from the metadata, if failed, it will assign a pixel size of 1 with "pixel" as units.
-* `-pl` or `--pyramid_levels` total number of pyramidal levels of the output image, this number should also include the high-resolution level.  Default value is 8, this argument will be only implemented if the input image is not pyramidal. If input image is pyramidal, the output image will have the same levels and this argument will be ignored.
-* `-sr` or `--save_ram` using this argument will provide the low RAM usage of version 0.4.1.
-* `--version` to print version.
-
-Hidden argument !!!:
-
-* `-comet` Flag to obtain the markers table on the fly for images acquired with the reference background acquisition implemented in the Lunaphore Comet at the TSPC (https://www.tspc-hd.com/). When this flag is used, the argument `-m`/`--markers` is ignored since the markers information will be extracted from the metadata of the input image.
-
-
-### Output
-
-The output image file will be a pyramidal `ome.tif` file containing the processed channels. The channels tagged for removal will be excluded from the final image.
-The output markers file will be a `csv` file containing the following columns: "marker_name", "background", "exposure". The "marker_name" column will contain the marker names of the processed channels. The "background" column will contain the marker names of the channels used for subtraction. The "exposure" column will contain the exposure times of the processed channels. 
-
-### Docker usage
-
-If you want to run the background subtraction directly from a pre-configured container with all the required packages, you can either build the docker container yourself or pull it from the Github container registry.
-
-To build the container run:
-
+Pull the latest container from the GitHub Container Registry:
 ```
-git clone https://github.com/SchapiroLabor/Background_subtraction.git
-docker build -t background_subtraction:latest .
-docker run background_subtraction:latest python background_sub.py
-```
-
-To pull the container from the Github container registry (ghcr.io):
-
-```
-## Login to ghcr.io
-docker login ghcr.io
-
-## Pull container
 docker pull ghcr.io/schapirolabor/background_subtraction:latest
 ```
+You can then run Backsub directly, mounting your input and output directories:
+```
+docker run --rm -v $(pwd):/data ghcr.io/schapirolabor/background_subtraction:latest \
+    python background_sub.py \
+    -r /data/input_image.tif \
+    -o /data/corrected_image.ome.tif \
+    -m /data/markers.csv \
+    -mo /data/markers_corrected.csv
+```
+Note that all required dependencies are already included inside the container.
+
+If you want to build the container yourself, clone the repository first, then build it from the provided Dockerfile:
+```
+git clone https://github.com/SchapiroLabor/Background_subtraction.git
+cd Background_subtraction
+docker build -t background_subtraction:latest .
+```
+### Option 2: Conda
+
+Clone the repository and create the Conda environment:
+```
+git clone https://github.com/SchapiroLabor/Background_subtraction.git
+cd Background_subtraction
+conda env create -f environment.yml
+conda activate backsub_env
+```
+You can now run Backsub locally (note that you need to point to the tool's script):
+```
+python backsub/background_sub.py -h
+```
+
+## Execution and usage
+
+### Inputs
+
+A `TIFF` or `OME-TIFF` file containing multiplexed immunofluorescence data.
+
+A `markers.csv` file should be provided to describe the channels of the image. Needs to contain the following columns:
+
+| Column      	| Description                                                                                                                                                                                                                                    	| Required 	|
+|-------------	|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|----------	|
+| marker_name 	| Contains the channel names, all values **must** be unique.                                                                                                                                                                                     	| yes      	|
+| background  	| Specifies the channel that should be subtracted from the specified channel. The `background` value, if present, **must** match the `marker_name` value of the background channel. If no subtraction is necessary, the field can be left empty. 	| yes      	|
+| exposure    	| Contains the exposure time used for channel acquisition in ms.                                                                                                                                                                                 	| yes      	|
+| remove      	| Optional column that allows the user to exclude certain channels from the output file by setting that channel's `remove` value to `TRUE`.                                                                                                       	| no       	|
+
+An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtraction/blob/main/example/markers.csv) file is provided.
+
+### Command Line Interface
+
+| Argument 	| Long form          	| Description                                                                                                                                                                                                                                                         	| Specification                                                	| Default 	| Required 	|
+|----------	|--------------------	|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------	|--------------------------------------------------------------	|---------	|----------	|
+| -in      	| --input            	| File path to the input image file.                                                                                                                                                                                                                                  	| string, ends with `.tif`, `.tiff`, `.ome.tif` or `.ome.tiff` 	|         	| yes      	|
+| -o       	| --output           	| File path where the output pyramidal OME-TIFF will be saved.                                                                                                                                                                                                        	| string, ends with `.ome.tif` or `.ome.tiff`                  	|         	| yes      	|
+| -m       	| --markers          	| File path to the markers (CSV) file containing the list of marker names and their respective background channels.                                                                                                                                                   	| string, ends with `.csv`                                     	|         	| yes      	|
+| -mo      	| --marker-output        	| File path where the output marker (CSV) file matching the output image will be saved.                                                                                                                                                                               	| string, ends with `.csv`                                     	|         	| yes      	|
+| -mpp     	| --pixel-size       	| Pixel size provided in microns (microns per pixel). If not provided, image metadata will be checked. If that is not successful, the value will be set to 1.                                                                                                         	| float                                                        	| None    	| no       	|
+| -sr      	| --save-ram         	| Optional flag to approximately cut RAM usage in half. Note that the dimensions of the reduced resolution levels (sub-levels) of the output pyramidal image will slightly differ whether or not the argument is used.                                                	| boolean flag                                                 	| false   	| no       	|
+| -comp    	| --compression      	| The output pyramidal OME-TIFF will be compressed using the specified compression. Set to "none" for no compression.                                                                                                                                                 	| string, either "lzw", "zlib", or "none"                      	| "lzw"   	| no       	|
+| -ts      	| --tile-size        	| Tile size used for writing pyramidal outputs. Note that the file size is smaller for smaller tile size values.                                                                                                                                                      	| integer, multiple of 16                                      	| 256     	| no       	|
+| -dsf     	| --downscale-factor 	| Downscale factor for pyramid layer creation. This value will only be used if the input image is NOT pyramidal. If the input image is pyramidal, the number of levels in the output image will be the same as in the input so the downscale factor won't be applied. 	| integer, larger than 1                                       	| 2       	| no       	|
+| -v       	| --version          	| Prints Backsub version.                                                                                                                                                                                                                                             	|                                                              	|         	|          	|
+| -comet   	| --comet-metadata   	| Flag to obtain the markers table on the fly for images acquired with the reference background acquisition implemented in the Lunaphore Comet at the TSPC (https://www.tspc-hd.com/). When this flag is used, the argument `-m`/`--markers` is ignored since the markers information will be extracted from the metadata of the input image.                                                                                                          	| boolean flag                                                 	| false   	| hidden   	|
+
+Example of a full command (note to provide full paths where applicable):
+```
+python Background_subtraction/backsub/background_sub.py \
+    --input /data/input_image.tif \
+    --output /data/corrected_image.ome.tif \
+    --markers /data/markers.csv \
+    --marker-output /data/markers_corrected.csv \
+    --pixel-size 0.65 \
+    --tile-size 256 \
+    --downscale-factor 2 \
+    --compression zlib
+```
+
+### Outputs
+
+The output image file will be a pyramidal `OME-TIFF` file containing the processed channels. The channels tagged for removal will be excluded from the final image.
+
+The output markers file will be a `CSV` file containing the following columns: "marker_name", "background", "exposure". The "marker_name" column will contain the marker names of the processed channels. The "background" column will contain the marker names of the channels used for subtraction. The "exposure" column will contain the exposure times of the processed channels. 
+
+## Features
+
+* Pixel-wise channel subtraction scaled by exposure time.
+* Autofluroescence correction for multiplexed immunofluroescence images.
+* Pyramidal OME-TIFF output compatible with the MCMICRO pipeline.
+* Optional image compression to not bloat data size of large projects.
+* Low-memory mode for local processing of large datasets.
+* Automatic metadata extraction for Lunaphore COMET data.
+
+## Contributing
+
+Contributions are welcome! If you would like to contribute, please:
+1. Fork the repository
+2. Create a feature branch:
+```
+git checkout -b feature/my-feature
+```
+3. Commit your changes and open a pull request
+
+For questions of issues, please open a GitHub issue.
+
+## Contributors
+
+Author and maintainer:
+* [Krešimir Beštak](@kbestak)
+
+Contributors: 
+* [Victor Perez](@VictorDidier)
+* [Florian Wünnemann](@FloWuenne).
+
+## Changelog
+
+See the [CHANGELOG](https://github.com/SchapiroLabor/Background_subtraction/blob/main/CHANGELOG.md) file for deatils about new features, bug fixes, and version history.
+
+## License
+
+This project is licensed under the terms of the [MIT License](https://github.com/SchapiroLabor/Background_subtraction/blob/main/LICENSE).
+
+## Citation
+
+If you use Backsub in your work, please cite it as:
+
+> Bestak, K., Perez, V., & Wuennemann, F. (2025). Backsub: pixel-by-pixel channel subtraction tool for multiplexed immunofluorescence data.
+> Available at: [https://github.com/SchapiroLabor/Background_subtraction](https://github.com/SchapiroLabor/Background_subtraction)
