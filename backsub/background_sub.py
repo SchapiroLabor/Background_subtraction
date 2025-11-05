@@ -18,7 +18,7 @@ import zarr
 #local libraries
 import CLI
 import ome_writer
-from metadata2markers_table import meta_from_file,assign_background
+from metadata2markers_table import meta_from_file,assign_background,make_marker_names_unique
 
 #Decorator function to measure run-time and memory peak of a function
 def memocron(func):
@@ -324,7 +324,8 @@ def main(version):
     # 3) Read/Create markers table and update it to include the information of the processing tasks
     if args.comet_metadata:
         registration_marker="DAPI"
-        meta_table=meta_from_file(in_path,registration_marker)
+        meta_table = meta_from_file(in_path,registration_marker)
+        meta_table = make_marker_names_unique(meta_table, col='marker_name')
         markers = process_markers( assign_background(meta_table,rmv_ref=True,ref_marker=registration_marker) )
 
     elif args.markers:

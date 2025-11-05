@@ -35,13 +35,13 @@ def get_args():
                         action='store_true',
                         help='setup the removal of all reference background channels and all DAPI except the first occurrence.'
                         )
-    
+
     parser.add_argument('-rm',
                         '--registration_marker',
                         required=False,
                         type=str,
                         default="DAPI",
-                        help='name of the csv file'
+                        help='Name of marker used for registration (default: DAPI).'
                         )
 
     
@@ -54,36 +54,58 @@ def meta_from_file(src_img_path,ref_marker_name):
     #Fetch image attributes from ome
     ch_names  = [ element.name for element in ome.images[0].pixels.channels ]
     exp_times = [ element.exposure_time for element in ome.images[0].pixels.planes ]
-    #cycles=[int(element.attributes["CycleID"])+1 for element in ome.structured_annotations[0].value.any_elements[0].children]
-    filters= [ element.attributes["FluorescenceChannel"] for element in ome.structured_annotations[0].value.any_elements[0].children ]
-    background=[None if ref_marker_name in element 
+
+    filters = [ element.attributes["FluorescenceChannel"] for element in ome.structured_annotations[0].value.any_elements[0].children ]
+    background = [None if ref_marker_name in element
                 else element for element in filters]
 
-    aux_dict={"channel_number":list(range(1,len(ch_names)+1)),
-              #"cycle_number":cycles,
-              "marker_name":ch_names,
-              "Filter":filters,
-              "background":background,
-              "exposure":exp_times
-              }
-    
-    df=pd.DataFrame(aux_dict)
+    aux_dict = {"channel_number": list(range(1, len(ch_names) + 1)),
+                #"cycle_number":cycles,
+                "marker_name": ch_names,
+                "Filter": filters,
+                "background": background,
+                "exposure": exp_times
+                }
+
+    df = pd.DataFrame(aux_dict)
     return df
 
+def make_marker_names_unique(df, col='marker_name'):
+    """
+    Ensures all marker names in the dataframe are unique.
+    If a marker appears multiple times, appends an index suffix (_1, _2, ...).
 
-def assign_background(df,rmv_ref=False,ref_marker="DAPI"):
+    Example:
+        TRITC, TRITC → TRITC, TRITC_1
+
+    Args:
+        df (pd.DataFrame): The metadata dataframe.
+        col (str): Column name containing the marker names.
+
+    Returns:
+        pd.DataFrame: DataFrame with unique marker names.
+    """
+    mdf = df.copy()
+    # Count duplicates
+    counts = mdf.groupby(col).cumcount()
+    # Append '_' and suffix only for duplicates (count > 0)
+    mdf.loc[counts > 0, col] = mdf.loc[counts > 0, col] + '_' + (counts[counts > 0]).astype(str)
+
+    return mdf
+
+def assign_background(df, rmv_ref=False, ref_marker="DAPI"):
     #Create column ["backsub_process"] indicating which rows will be processed with backsub
-    filters_=df.Filter.unique().tolist()
-    #Strings corresponding to filters/background names are set to False, since the are not processed 
-    backsub_process=df["marker_name"].replace(filters_,value=False,regex=True)
+    filters_ = df.Filter.unique().tolist()
+    #Strings corresponding to filters/background names are set to False, since the are not processed
+    backsub_process = df["marker_name"].replace(filters_, value=False, regex=True)
     #Marker_name corresponding to signal will be set to True for processing
-    backsub_process=np.where(backsub_process==False,False,True)
-    df.insert(df.shape[1],"backsub_process",backsub_process)
+    backsub_process = np.where(backsub_process == False, False, True)
+    df.insert(df.shape[1], "backsub_process", backsub_process)
 
     #Assign the latest mention of the autofluorescence channel to the correspondent row in the background column
-    rename_background=[]
+    rename_background = []
+
     #List with row indices of background channels to be removed
-    
     for idx,row in df.iterrows():
 
         if row.backsub_process:
@@ -109,15 +131,16 @@ def assign_background(df,rmv_ref=False,ref_marker="DAPI"):
 
 
 def main():
-    args=get_args()
-    img_path=args.input_img
-    out_dir=args.output_dir
-    file_name=args.output_file_name
-    global_ref_marker=args.registration_marker
-    
-    df=meta_from_file(img_path,global_ref_marker)
-    df_updated=assign_background(df,args.remove_background_references,global_ref_marker)
-    df_updated.to_csv( out_dir/file_name ,index=False)
+    args = get_args()
+    img_path = args.input_img
+    out_dir = args.output_dir
+    file_name = args.output_file_name
+    global_ref_marker = args.registration_marker
+
+    df = meta_from_file(img_path, global_ref_marker)
+    df_unique = make_marker_names_unique(df, col='marker_name')
+    df_updated = assign_background(df_unique, args.remove_background_references, global_ref_marker)
+    df_updated.to_csv(out_dir / file_name, index=False)
 
 
 if __name__ == '__main__':
