@@ -152,15 +152,17 @@ def OME_metadata(image_block, software):
         OME: OME object.
     """
     ome = OME()
-    ome.creator = " ".join(
-        [
-            software,
-            ome_types.__name__,
-            ome_types.__version__,
-            "/ python version-",
-            platform.python_version(),
-        ]
-    )
+    ome.creator = software
+    # detailed versions provided in environment yml
+    # ome.creator = " ".join( 
+    #     [
+    #         software,
+    #         ome_types.__name__,
+    #         ome_types.__version__,
+    #         "/ python version-",
+    #         platform.python_version(),
+    #     ]
+    # )
 
     ome.images = image_block
     ome_xml = ome_types.to_xml(ome)
