@@ -3,7 +3,6 @@ import ome_types
 from ome_types.model import OME,Image,Pixels,TiffData,Channel,Plane
 import platform
 
-
 def INPUTS(frame):
     """
     This function creates a dictionary with the metadata of the tiles.

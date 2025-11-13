@@ -1,4 +1,4 @@
-import ome_schema as schema
+import backsub.ome_schema as schema
 import pandas as pd
 
 def create_ome(conformed_markers, info, software_version):

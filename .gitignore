@@ -1,4 +1,7 @@
 backsub/__pycache__
+dist/
 __pycache__
 .DS_Store
 backsub/testing.ipynb
+build/
+backsub.egg-info/

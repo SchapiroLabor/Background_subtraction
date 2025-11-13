@@ -9,9 +9,8 @@ Rework of Backsub to not have Palom as a dependency reducing the environment siz
 
 ### `Added`
 - `compression` parameter
-- hidden argument `comet`, which extracts the metadata on-the-fly for Lunaphore COMET images. When using this argument, the `markers.csv` file is not required.
 - two RAM profiles: (1) default, uses moderate RAM. (2) Uses approximately half of the default RAM at the cost of a slight loss in precision of the calculation of the downsized dimensions of the pyramidal output image. This means the dimensions of the pyramidal level will differ between profile 1 and 2. The high-resolution level is not affected by this.
-- organizes the tool in five scripts: (1) CLI, (2) ome-schema structure, (3) ome-schema writer, (4) background subtraction and writing of output image and (5) extraction of metadata from Lunaphore COMET images.
+- organizes the tool in five scripts: (1) CLI, (2) ome-schema structure, (3) ome-schema writer, (4) background subtraction and writing of output image and (5) extraction of metadata from Lunaphore COMET images to create the marker table.
 - logger has been re-designed.
 - restructured README
 - `tile-size` parameter now defaults to 256 instead of 1024

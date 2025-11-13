@@ -16,9 +16,9 @@ from skimage.exposure import rescale_intensity
 import ome_types
 import zarr
 #local libraries
-import CLI
-import ome_writer
-from metadata2markers_table import meta_from_file,assign_background,make_marker_names_unique
+import backsub.CLI as CLI
+import backsub.ome_writer as ome_writer
+from backsub import __version__
 
 #Decorator function to measure run-time and memory peak of a function
 def memocron(func):
@@ -282,8 +282,8 @@ def write_pyramid(src_img_path,
     return out_file
 
 @memocron
-def main(version):
-    args=CLI.get_args(_version)
+def main():
+    args=CLI.get_args(__version__)
     in_path = args.input
     out_path = args.output
 
@@ -352,12 +352,11 @@ def main(version):
     
     #6) Write metadata in OME format into the pyramidal file
     channel_names=markers_updated["marker_name"].tolist()
-    ome_xml=ome_writer.create_ome(channel_names,src_props,version)
+    ome_xml=ome_writer.create_ome(channel_names,src_props,__version__)
     tifff.tiffcomment(pyramid_abs_path, ome_xml.encode("utf-8"))
 
     logger.info(f'\nSCRIPT FINISHED PROCESSING TASKS ')
     print(f'\nPyramidal image with {levels} levels was successfully written{'' if compression is None else f' with {compression} compression'}.')
 
 if __name__ == '__main__':
-    _version = 'v0.5.0'
-    main(_version)
+    main()
