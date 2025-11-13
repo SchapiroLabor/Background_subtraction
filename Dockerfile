@@ -20,4 +20,6 @@ ENV PATH="$MAMBA_ROOT_PREFIX/bin:$PATH"
 
 # Copy the rest of the current directory into /app inside the container
 WORKDIR /app
-COPY ./backsub .
+COPY . .
+
+RUN micromamba run -n base pip install .

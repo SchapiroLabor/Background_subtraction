@@ -1,0 +1,40 @@
+[project]
+name = "backsub"
+dynamic = ["version"]
+description = "Channel subtraction scaled by exposure times"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [
+    { name="Krešimir Bestak", email="kbestak@gmail.com" }
+]
+keywords = ["autofluorescence", "imaging", "immunofluorescence", "subtraction"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License"
+]
+dependencies = [
+    "pandas",
+    "tifffile",
+    "ome_types",
+    "numpy",
+    "loguru",
+    "dask",
+    "dask-image",
+    "scikit-image",
+    "zarr>=3"
+]
+[project.urls]
+Homepage = "https://github.com/schapirolabor/background_subtraction"
+Issues = "https://github.com/schapirolabor/background_subtraction/issues"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "backsub._version.__version__"}
+
+[project.scripts]
+backsub = "backsub.background_sub:main"

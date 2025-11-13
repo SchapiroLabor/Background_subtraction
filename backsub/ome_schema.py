@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import ome_types
-from ome_types.model import OME,Image,Pixels,TiffData,Channel,Plane
+from ome_types.model import OME, Image, Pixels, TiffData, Channel, Plane
 import platform
 
 
@@ -13,12 +13,12 @@ def INPUTS(frame):
     Returns:
         dict: dictionary with the metadata of the tiles.
     """
-    inputs=frame.to_dict('list')
+    inputs = frame.to_dict("list")
 
     return inputs
 
 
-def TIFF_array(no_of_channels, inputs={'offset':0}):
+def TIFF_array(no_of_channels, inputs={"offset": 0}):
     """
     This function creates a list of TIFFData objects.
     Args:
@@ -28,13 +28,9 @@ def TIFF_array(no_of_channels, inputs={'offset':0}):
         list: list of TIFFData objects.
     """
     TIFF = [
-        TiffData(
-            first_c=ch,
-            ifd=n,
-            plane_count=1
-            )
-        for n,ch in enumerate(range(0,no_of_channels), start=inputs['offset'])
-        ]
+        TiffData(first_c=ch, ifd=n, plane_count=1)
+        for n, ch in enumerate(range(0, no_of_channels), start=inputs["offset"])
+    ]
 
     return TIFF
 
@@ -54,14 +50,22 @@ def PLANE_array(no_of_channels, inputs):
             the_c=ch,
             the_t=0,
             the_z=0,
-            position_x= inputs['position_x'][ch] if 'position_x' in inputs.keys() else 0,
-            position_y= inputs['position_y'][ch] if 'position_y' in inputs.keys() else 0,
+            position_x=inputs["position_x"][ch] if "position_x" in inputs.keys() else 0,
+            position_y=inputs["position_y"][ch] if "position_y" in inputs.keys() else 0,
             position_z=0,
-            position_x_unit= inputs['position_x_unit'][ch] if 'position_x_unit'in inputs.keys() else "pixel" ,
-            position_y_unit= inputs['position_y_unit'][ch] if 'position_y_unit'in inputs.keys() else "pixel" 
-            )
-        for ch in range(0,no_of_channels)
-        ]
+            position_x_unit=(
+                inputs["position_x_unit"][ch]
+                if "position_x_unit" in inputs.keys()
+                else "pixel"
+            ),
+            position_y_unit=(
+                inputs["position_y_unit"][ch]
+                if "position_y_unit" in inputs.keys()
+                else "pixel"
+            ),
+        )
+        for ch in range(0, no_of_channels)
+    ]
 
     return PLANE
 
@@ -78,12 +82,12 @@ def CHANN_array(no_of_channels, inputs):
 
     CHANN = [
         Channel(
-            id=f"Channel:{str(ch)}", # 'Channel:{y}:{x}:{marker_name}'.format(x=ch,y=100+int( inputs['tile'][ch] ) ,marker_name=inputs['marker'][ch] )
+            id=f"Channel:{str(ch)}",  # 'Channel:{y}:{x}:{marker_name}'.format(x=ch,y=100+int( inputs['tile'][ch] ) ,marker_name=inputs['marker'][ch] )
             name=inputs["name"][ch],
-            color=(255,255,255)
-            )
-        for ch in range(0,no_of_channels)
-        ]
+            samples_per_pixel=1,
+        )
+        for ch in range(0, no_of_channels)
+    ]
 
     return CHANN
 
@@ -99,27 +103,26 @@ def PIXELS_array(chann_block, plane_block, tiff_block, inputs):
     Returns:
         Pixels: Pixels object.
     """
-
     PIXELS = Pixels(
         id=f"Pixels:{inputs['tile'][0]}",
-        dimension_order='XYCZT',
+        dimension_order="XYCZT",
         size_c=len(chann_block),
         size_t=1,
-        size_x=inputs['size_x'][0],
-        size_y=inputs['size_y'][0],
+        size_x=inputs["size_x"][0],
+        size_y=inputs["size_y"][0],
         size_z=1,
-        type=inputs['type'][0],#bit_depth
+        type=inputs["type"][0],  # bit_depth
         big_endian=False,
         channels=chann_block,
         interleaved=False,
-        physical_size_x=inputs['physical_size_x'][0],
-        physical_size_x_unit=inputs['physical_size_x_unit'][0],
-        physical_size_y=inputs['physical_size_y'][0],
-        physical_size_y_unit=inputs['physical_size_y_unit'][0],
+        physical_size_x=inputs["physical_size_x"][0],
+        physical_size_x_unit=inputs["physical_size_x_unit"][0],
+        physical_size_y=inputs["physical_size_y"][0],
+        physical_size_y_unit=inputs["physical_size_y_unit"][0],
         physical_size_z=1.0,
         planes=plane_block,
-        significant_bits=inputs['significant_bits'][0],
-        tiff_data_blocks=tiff_block
+        significant_bits=inputs["significant_bits"][0],
+        tiff_data_blocks=tiff_block,
     )
 
     return PIXELS
@@ -134,16 +137,13 @@ def IMAGE_array(pixels_block, imageID):
     Returns:
         Image: Image object.
     """
-    
-    IMAGE = Image(
-            id =f'Image:{imageID}',
-            pixels=pixels_block
-            )
+
+    IMAGE = Image(id=f"Image:{imageID}", pixels=pixels_block)
 
     return IMAGE
 
 
-def OME_metadata(image_block,software):
+def OME_metadata(image_block, software):
     """
     This function creates an OME object.
     Args:
@@ -152,13 +152,17 @@ def OME_metadata(image_block,software):
         OME: OME object.
     """
     ome = OME()
-    ome.creator = " ".join([software,
-                            ome_types.__name__,
-                        ome_types.__version__,
-                        '/ python version-',
-                        platform.python_version()
-                        ]
-                        )
+    ome.creator = software
+    # detailed versions provided in environment yml
+    # ome.creator = " ".join( 
+    #     [
+    #         software,
+    #         ome_types.__name__,
+    #         ome_types.__version__,
+    #         "/ python version-",
+    #         platform.python_version(),
+    #     ]
+    # )
 
     ome.images = image_block
     ome_xml = ome_types.to_xml(ome)
