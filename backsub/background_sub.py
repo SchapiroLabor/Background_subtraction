@@ -67,8 +67,6 @@ def pyramid_save_ram(img_arr,sub_levels):
     #TODO:need to optimize speed and match dimensions of levels with those of the src image
     ref_dtype=img_arr.dtype.name
     border_overlap=down_factor-1
-    max_val=np.max(img_arr)
-    min_val=np.min(img_arr)
     ref_dtype=img_arr.dtype.name
     rescale_args={
             "scale":1/down_factor,
@@ -78,9 +76,9 @@ def pyramid_save_ram(img_arr,sub_levels):
                     }
     img_aux=img_arr
     for _ in range(sub_levels):
-        img_chunk=da.from_array(img_aux,chunks=chunksize)
+        img_chunk=da.from_array(img_aux, chunks=chunksize)
         float_half=img_chunk.astype("float32")
-        dim_rescale=da.map_overlap(rescale,float_half,depth=border_overlap,boundary="reflect",**rescale_args)
+        dim_rescale=da.map_overlap(rescale, float_half, depth=border_overlap, boundary="reflect", **rescale_args)
         img_aux=(da.rint(dim_rescale).astype(ref_dtype)).compute()
         yield img_aux
 
@@ -192,19 +190,9 @@ def subtract_channels(src_img_path,
                       ref_dtype,
                       task_no
                       ):
-    """
-    This function executes the background subtraction using generators, each element of the generator
-    is a tuple with 3 values, such that:
-
-    tuple=(img_with_backsub[array],calculate or extract pyramid [str],pyramid_from_index[int])
-
-    The second entry of the tuple indicates in the writing process if the pyramid should be calculated using 
-    pyramid_gaussian from scikit image. If extract, the index given in the third entry will fetch all the pyramid
-    levels from the original image stack(src_img_path).
-    """
-    factor=np.float32(factor)#limiting precision to float32 saves memory
+    factor=np.float32(factor) #limiting precision to float32 saves memory
     signal_as_zarr = zarr.open( tifff.imread( src_img_path, aszarr=True, series=0, level=0,key=int(signal_index) ) )
-    background_as_zarr =zarr.open( tifff.imread( src_img_path, aszarr=True, series=0, level=0,key=int(background_index) ) )
+    background_as_zarr =zarr.open( tifff.imread( src_img_path, aszarr=True, series=0, level=0, key=int(background_index) ) )
     signal=da.from_zarr(signal_as_zarr, chunks=ref_chunksize )
     background=da.from_zarr(background_as_zarr, chunks=ref_chunksize)
     if np.issubdtype(ref_dtype, np.integer):
@@ -219,9 +207,9 @@ def subtract_channels(src_img_path,
     print(resources.results[0],"([sec],[MB],[% CPU usage])")
     return result
 
-def extract_sublevels_from_tiff(path,ch,levels):
+def extract_sublevels_from_tiff(path, ch, levels):
     with tifff.TiffFile(path) as tif:
-        for l in range(1,levels):
+        for l in range(1, levels):
             yield tif.series[0].levels[l].pages[ch].asarray()
 
 def write_pyramid(src_img_path,
@@ -322,16 +310,9 @@ def main(version):
         levels=src_props["extracted_levels"]
 
     # 3) Read/Create markers table and update it to include the information of the processing tasks
-    if args.comet_metadata:
-        registration_marker="DAPI"
-        meta_table = meta_from_file(in_path,registration_marker)
-        meta_table = make_marker_names_unique(meta_table, col='marker_name')
-        markers = process_markers( assign_background(meta_table,rmv_ref=True,ref_marker=registration_marker) )
+    markers = process_markers(pd.read_csv(args.markers))
 
-    elif args.markers:
-        markers = process_markers(pd.read_csv(args.markers))
-
-    markers_updated=markers.loc[ markers.keep]
+    markers_updated=markers.loc[ markers.keep ]
 
     #4) Write updated markers.csv without appended columns. This file contains the markers information of the final image stack
     markers_preview = markers_updated.drop(columns=['keep','ind','processed','factor','bg_idx'])

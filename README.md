@@ -93,7 +93,6 @@ An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtracti
 | -ts      	| --tile-size        	| Tile size used for writing pyramidal outputs. Note that the file size is smaller for smaller tile size values.                                                                                                                                                      	| integer, multiple of 16                                      	| 256     	| no       	|
 | -dsf     	| --downscale-factor 	| Downscale factor for pyramid layer creation. This value will only be used if the input image is NOT pyramidal. If the input image is pyramidal, the number of levels in the output image will be the same as in the input so the downscale factor won't be applied. 	| integer, larger than 1                                       	| 2       	| no       	|
 | -v       	| --version          	| Prints Backsub version.                                                                                                                                                                                                                                             	|                                                              	|         	|          	|
-| -comet   	| --comet-metadata   	| Flag to obtain the markers table on the fly for images acquired with the reference background acquisition implemented in the Lunaphore Comet at the TSPC (https://www.tspc-hd.com/). When this flag is used, the argument `-m`/`--markers` is ignored since the markers information will be extracted from the metadata of the input image.                                                                                                          	| boolean flag                                                 	| false   	| hidden   	|
 
 Example of a full command (note to provide full paths where applicable):
 ```
@@ -157,4 +156,3 @@ This project is licensed under the terms of the [MIT License](https://github.com
 If you use Backsub in your work, please cite it as:
 
 > Bestak, K., Perez, V., & Wuennemann, F. (2025). Backsub: pixel-by-pixel channel subtraction tool for multiplexed immunofluorescence data.
-> Available at: [https://github.com/SchapiroLabor/Background_subtraction](https://github.com/SchapiroLabor/Background_subtraction)

@@ -17,7 +17,6 @@ def get_args(_version):
 
     # INPUT GROUPS
     inputs = parser.add_argument_group(title="INPUTS")
-    input_markers_table = inputs.add_mutually_exclusive_group(required=True)
     
     inputs.add_argument("-r", ## deprecation warning can be added later
                         "--root", ## deprecation warning can be added later
@@ -29,21 +28,16 @@ def get_args(_version):
                         required=True, 
                         help="File path to input image file.")
     
-    input_markers_table.add_argument(
+    inputs.add_argument(
                         "-m",
                         "--markers", 
                         dest="markers", 
                         action="store",
                         type=pathlib.Path,
+                        required=True,
                         help="""File path to the markers.csv file containing the list of marker names
                         and their respective background channels.
                         """
-                        )
-    
-    input_markers_table.add_argument("-comet",
-                        "--comet-metadata",
-                        action='store_true',
-                        help=argparse.SUPPRESS
                         )
     
     inputs.add_argument("-mpp",
