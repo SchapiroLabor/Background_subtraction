@@ -5,7 +5,7 @@ Backsub performs pixel-by-pixel background subtraction between marker and backgr
 
 Example of pixel-wise autofluorescence subtraction with Backsub:
 <p align="left">
-  <img src="example/application_example.png" alt="Background subtraction example" width="750">
+  <img src="https://raw.githubusercontent.com/SchapiroLabor/Background_subtraction/main/example/application_example.png" alt="Background subtraction example" width="750">
 </p>
 
 ## Introduction
@@ -19,47 +19,69 @@ The primary use case is autofluorescence subtraction for multichannel and multic
 
 Background subtraction is performed using the following formula:
 
-$Marker_{corrected} = Marker_{raw} - Background \times \frac{Exposure_{Marker}}{Exposure_{Background}}$
+Marker_corrected = Marker_raw − Background × (Exposure_Marker / Exposure_Background)
 
 ## Installation
 
-Backsub can be run either in a preconfigured Docker container or in a local conda environment.
+Backsub can be installed directly from PyPI, or run in a preconfigured Docker container. For development or container builds, a fixed-version Conda environment is provided.
 
-### Option 1: Docker
+### Option 1: Install from PyPI
+
+Backsub is available from [PyPI](https://pypi.org/project/backsub/)
+```bash
+pip install backsub
+```
+After installation, you can run the tool directly in the command line
+```bash
+backsub --help
+```
+Example:
+```bash
+backsub \
+    -r /path/to/input_image.tif \
+    -o /path/to/corrected_image.ome.tif \
+    -m /path/to/markers.csv \
+    -mo /path/to/markers_corrected.csv
+```
+
+### Option 2: Docker
 
 Pull the latest container from the GitHub Container Registry:
-```
+```bash
 docker pull ghcr.io/schapirolabor/background_subtraction:latest
 ```
 You can then run Backsub directly, mounting your input and output directories:
-```
+```bash
 docker run --rm -v $(pwd):/data ghcr.io/schapirolabor/background_subtraction:latest \
-    python background_sub.py \
+    backsub \
     -r /data/input_image.tif \
     -o /data/corrected_image.ome.tif \
     -m /data/markers.csv \
     -mo /data/markers_corrected.csv
 ```
-Note that all required dependencies are already included inside the container.
 
 If you want to build the container yourself, clone the repository first, then build it from the provided Dockerfile:
 ```
 git clone https://github.com/SchapiroLabor/Background_subtraction.git
 cd Background_subtraction
-docker build -t background_subtraction:latest .
+docker build -t backsub:latest .
 ```
-### Option 2: Conda
 
-Clone the repository and create the Conda environment:
-```
+### Option 3: Development / Conda environment
+
+For development or reproducible research setups:
+```bash
 git clone https://github.com/SchapiroLabor/Background_subtraction.git
 cd Background_subtraction
 conda env create -f environment.yml
 conda activate backsub_env
+
+pip install -e .
 ```
-You can now run Backsub locally (note that you need to point to the tool's script):
-```
-python backsub/background_sub.py -h
+
+Run with
+```bash
+python -m backsub.background_sub --help
 ```
 
 ## Execution and usage
@@ -155,4 +177,6 @@ This project is licensed under the terms of the [MIT License](https://github.com
 
 If you use Backsub in your work, please cite it as:
 
-> Bestak, K., Perez, V., & Wuennemann, F. (2025). Backsub: pixel-by-pixel channel subtraction tool for multiplexed immunofluorescence data.
+> Bestak, K., Perez, V., & Wuennemann, F. (2025).  
+> **Backsub: a pixel-by-pixel channel subtraction tool for multiplexed immunofluorescence data.**
+> Available at: [https://github.com/SchapiroLabor/Background_subtraction](https://github.com/SchapiroLabor/Background_subtraction)
