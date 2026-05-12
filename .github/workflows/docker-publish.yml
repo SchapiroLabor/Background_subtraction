@@ -7,10 +7,9 @@ name: Docker
 
 on:
   pull_request:
-    branches: [ "main" ]
-  
+    branches: ["main"]
   release:
-    types: [ published ]
+    types: [published]
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -18,10 +17,8 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,12 +29,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Enable QEMU for cross-platform builds
       # https://github.com/docker/setup-qemu-action
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer
@@ -45,7 +42,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
         with:
-          cosign-release: 'v2.2.4'
+          cosign-release: "v2.2.4"
 
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache

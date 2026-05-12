@@ -7,9 +7,9 @@ from argparse import ArgumentParser as AP
 def get_args(_version):
     # Script description
     description = """
-                Subtracts background from an image (signal) 
-                acquired with fluorescence microscopy.  
-                Subtraction is carried out via the formula (SignalImage-factor*BackgroundImage), 
+                Subtracts background from an image (signal)
+                acquired with fluorescence microscopy.
+                Subtraction is carried out via the formula (SignalImage-factor*BackgroundImage),
                 where factor is the ratio between exposure times of both images.
                 """
 
@@ -23,14 +23,14 @@ def get_args(_version):
 
     inputs.add_argument(
         "-r",  ## deprecation warning can be added later
-        "--root",  ## deprecation warning can be added later
+        "--root", 
         "-in",
         "--input",
         dest="input",
         action="store",
         type=pathlib.Path,
         required=True,
-        help="File path to input image file.",
+        help="File path to the input image file.",
     )
 
     inputs.add_argument(
@@ -41,8 +41,7 @@ def get_args(_version):
         type=pathlib.Path,
         required=True,
         help="""File path to the markers.csv file containing the list of marker names
-                        and their respective background channels.
-                        """,
+                and their respective background channels.""",
     )
 
     inputs.add_argument(
@@ -54,7 +53,9 @@ def get_args(_version):
         type=float,
         default=None,
         action="store",
-        help="pixel size in microns, i.e. microns per pixel(mpp)",
+        help="""Pixel size in microns, i.e. microns per pixel(mpp). If not provided,
+                the pixel size will be obtained from the image metadata. If that's
+                not successful, the value will be set to 1. [Default: None]""",
     )
 
     inputs.add_argument(
@@ -64,8 +65,7 @@ def get_args(_version):
         required=False,
         type=int,
         default=256,
-        help="""Tile size for image pyramid creation. Has to be a multiple of 16.
-                        """,
+        help="""Tile size for image pyramid creation. Has to be a multiple of 16. [Default: 256]""",
     )
 
     inputs.add_argument(
@@ -76,20 +76,18 @@ def get_args(_version):
         type=int,
         default=2,
         help="""Downscale factor for the image pyramid.
-                        This value will be only used if the input image is NOT pyramidal.
-                        If input image is pyramidal, the number of levels in the output image 
-                        will be the same as in the input so the downscale factor is not applied.
-                        """,
+                This value will be only used if the input image is NOT pyramidal.
+                If input image is pyramidal, the number of levels in the output image
+                will be the same as in the input so the downscale factor is not applied. [Default: 2]""",
     )
 
     inputs.add_argument(
         "-sr",
         "--save-ram",
         action="store_true",
-        help="""RAM usage is cut in half when using this flag.  
-                        Notice that the dimensions of the reduced resolution levels (sub-levels) of 
-                        the output pyramidal image will slightly differ whether or not using this argument.                    
-                        """,
+        help="""RAM usage is reduced when using this flag.
+                Notice that the dimensions of the reduced resolution levels (sub-levels) of
+                the output pyramidal image will slightly differ whether or not using this argument. [Default: False]""",
     )
 
     inputs.add_argument(
@@ -98,11 +96,10 @@ def get_args(_version):
         dest="compression",
         required=False,
         type=str,
-        default="lzw",
+        default="zlib",
         choices=["lzw", "none", "deflate", "zlib"],
         help="""If set, the output pyramidal image will be compressed using the specified
-                        compression method. Set to "none" for no compression. Default is LZW. An alternative is zlib.
-                        """,
+                compression method. Set to "none" for no compression. [Default: zlib]""",
     )
 
     # VERSION CONTROL
@@ -118,7 +115,7 @@ def get_args(_version):
         action="store",
         type=pathlib.Path,
         required=True,
-        help="File path where the output pyramidal OME-TIFF will be saved.",
+        help="File path where the output background-subtracted pyramidal OME-TIFF will be saved.",
     )
 
     outputs.add_argument(

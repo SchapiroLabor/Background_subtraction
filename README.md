@@ -1,4 +1,8 @@
 # Backsub - pixel-by-pixel channel subtraction tool for multiplexed immunofluorescence data
+[![PyPI](https://img.shields.io/pypi/v/backsub?style=flat-square)](https://pypi.org/project/backsub/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/backsub?style=flat-square)](https://pypi.org/project/backsub/)
+[![PyPI - License](https://img.shields.io/pypi/l/backsub?style=flat-square)](https://pypi.org/project/backsub/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/backsub?style=flat-square)](https://pypi.org/project/backsub/)
 
 Backsub performs pixel-by-pixel background subtraction between marker and background channels scaled by their respective exposure times. The outputs are saved as pyramidal OME-TIFF files. It was originally developed for data produced by the Lunaphore COMET platform and is fully compatible with the [MCMICRO](https://mcmicro.org) pipeline.
 
@@ -23,7 +27,8 @@ Marker_corrected = Marker_raw − Background × (Exposure_Marker / Exposure_Back
 
 ## Installation
 
-Backsub can be installed directly from PyPI, or run in a preconfigured Docker container. For development or container builds, a fixed-version Conda environment is provided.
+Backsub can be installed directly from PyPI, or run in a preconfigured Docker container. For development or container builds, a fixed-version Conda environment is provided.  
+Backsub requires Python >=3.11
 
 ### Option 1: Install from PyPI
 
@@ -111,7 +116,7 @@ An exemplary [markers.csv](https://github.com/SchapiroLabor/Background_subtracti
 | -mo      	| --marker-output        	| File path where the output marker (CSV) file matching the output image will be saved.                                                                                                                                                                               	| string, ends with `.csv`                                     	|         	| yes      	|
 | -mpp     	| --pixel-size       	| Pixel size provided in microns (microns per pixel). If not provided, image metadata will be checked. If that is not successful, the value will be set to 1.                                                                                                         	| float                                                        	| None    	| no       	|
 | -sr      	| --save-ram         	| Optional flag to approximately cut RAM usage in half. Note that the dimensions of the reduced resolution levels (sub-levels) of the output pyramidal image will slightly differ whether or not the argument is used.                                                	| boolean flag                                                 	| false   	| no       	|
-| -comp    	| --compression      	| The output pyramidal OME-TIFF will be compressed using the specified compression. Set to "none" for no compression.                                                                                                                                                 	| string, either "lzw", "zlib", or "none"                      	| "lzw"   	| no       	|
+| -comp    	| --compression      	| The output pyramidal OME-TIFF will be compressed using the specified compression. Set to "none" for no compression.                                                                                                                                                 	| string, either "lzw", "zlib", or "none"                      	| "zlib"   	| no       	|
 | -ts      	| --tile-size        	| Tile size used for writing pyramidal outputs. Note that the file size is smaller for smaller tile size values.                                                                                                                                                      	| integer, multiple of 16                                      	| 256     	| no       	|
 | -dsf     	| --downscale-factor 	| Downscale factor for pyramid layer creation. This value will only be used if the input image is NOT pyramidal. If the input image is pyramidal, the number of levels in the output image will be the same as in the input so the downscale factor won't be applied. 	| integer, larger than 1                                       	| 2       	| no       	|
 | -v       	| --version          	| Prints Backsub version.                                                                                                                                                                                                                                             	|                                                              	|         	|          	|

@@ -1,7 +1,7 @@
 name: backsub_env
 channels:
   - conda-forge
-  - defaults
+  - nodefaults
 dependencies:
   - python=3.12.11
   - pandas=2.3.1
@@ -14,3 +14,5 @@ dependencies:
   - dask-image=2024.5.3
   - zarr=3.1.1
   - pip
+  - psutil=7.2.2
+  - imagecodecs=2026.3.6
